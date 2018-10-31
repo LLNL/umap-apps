@@ -31,9 +31,9 @@ At a minimum, the programs under umap-apps depend upon umap being installed.
 Follow the instructions for installing umap from the umap repository located
 here <https://github.com/LLNL/umap>`_.
 
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 Building umap-apps
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 
 Umap uses CMake to handle builds. Make sure that you have a modern
 compiler loaded and the configuration is as simple as:
@@ -55,9 +55,9 @@ being used. Once CMake has completed, umap-apps can be built with Make as follow
 
 For more advanced configuration, see :doc:`advanced_configuration`.
 
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^
 Installing umap-apps
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^
 
 To install umap-apps, just run:
 

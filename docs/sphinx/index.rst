@@ -9,17 +9,14 @@ large regions of memory for them.
   running with umap.
 
 .. toctree::
-  :maxdepth: 2
   :caption: Basics
   getting_started
 
 .. toctree::
-  :maxdepth: 2
   :caption: Reference
   advanced_configuration
 
 .. toctree::
-  :maxdepth: 2
   :caption: Program Documentation
-  ../../src/bfs/README.md
+  include ../../src/bfs/README.md
 
