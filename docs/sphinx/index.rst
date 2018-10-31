@@ -8,8 +8,6 @@ large regions of memory for them.
 - Take a look at our Getting Started guide for all you need to get up and
   running with umap.
 
-Any questions? File an issue on GitHub.
-
 .. toctree::
   :maxdepth: 2
   :caption: Basics
@@ -24,3 +22,4 @@ Any questions? File an issue on GitHub.
   :maxdepth: 2
   :caption: Program Documentation
   ../../src/bfs/README.md
+
