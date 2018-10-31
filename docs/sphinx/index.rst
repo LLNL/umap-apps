@@ -24,5 +24,5 @@ large regions of memory for them.
   :maxdepth: 2
   :caption: Program Documentation
 
-  include ../../src/bfs/README.md
+  include ../../../src/bfs/README.md
 
