@@ -35,7 +35,7 @@ here <https://github.com/LLNL/umap>`_.
 Building umap-apps
 ^^^^^^^^^^^^^^^^^^
 
-Umap uses CMake to handle builds. Make sure that you have a modern
+Umap-apps uses CMake to handle builds. Make sure that you have a modern
 compiler loaded and the configuration is as simple as:
 
 .. code-block:: bash

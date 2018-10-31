@@ -22,7 +22,7 @@ large regions of memory for them.
 
 .. toctree::
   :maxdepth: 2
-  :caption: Program Documentation
+  :caption: Documentation
 
-  include ../../../src/bfs/README.md
+  .. include:: ../../../src/bfs/README.md
 

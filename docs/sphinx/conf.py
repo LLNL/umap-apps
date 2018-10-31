@@ -20,7 +20,7 @@
 ##############################################################################
 # -*- coding: utf-8 -*-
 #
-# Umap documentation build configuration file, created by
+# Umap-apps documentation build configuration file, created by
 # sphinx-quickstart on Tue Feb 28 13:51:37 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -100,7 +100,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Umap'
+project = u'Umap-apps'
 copyright = u'2018, Marty McFadden'
 author = u'Marty McFadden'
 
@@ -166,7 +166,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Umapdoc'
+htmlhelp_basename = 'Umap-appsdoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -193,7 +193,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'Umap.tex', u'umap-apps Documentation',
+    (master_doc, 'Umap-apps.tex', u'umap-apps Documentation',
      u'Marty McFadden', 'manual'),
 ]
 
