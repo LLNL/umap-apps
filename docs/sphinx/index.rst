@@ -19,5 +19,6 @@ large regions of memory for them.
   :caption: Reference
 
   advanced_configuration
+  bfs
   api/api
 
