@@ -10,8 +10,7 @@ umap-apps.
 ------------
 Installation
 ------------
-
-Umap-apps is hosted on GitHub `here <https://github.com/LLNL/umap-apps>`_.
+Umap-apps is hosted on GitHub `here <https://github.com/LLNL/umap-apps>`.
 To clone the repo into your local working space, type:
 
 .. code-block:: bash

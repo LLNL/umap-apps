@@ -6,7 +6,7 @@ This repository contains applications that use the umap library to manage
 large regions of memory for them.
 
 - Take a look at our Getting Started guide for all you need to get up and
-  running with umap.
+  running.
 
 .. toctree::
   :maxdepth: 2
@@ -19,4 +19,5 @@ large regions of memory for them.
   :caption: Reference
 
   advanced_configuration
+  api/api
 
