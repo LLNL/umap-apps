@@ -10,16 +10,14 @@ added to show how to make additional changes to the build configuration.
 
 .. code-block:: bash
 
-    cmake -DUMAP_LIBRARY_PATH="<path to installed umap libraries>"
-    cmake -DUMAP_INCLUDE_PATH="<path to installed umap include files>"
+    cmake -DUMAP_INSTALL_PATH="<path to where umap is installed>"
 
 Here is a summary of the configuration options, their default value, and meaning:
 
       ===========================  ======== ===============================================================================
       Variable                     Default  Meaning
       ===========================  ======== ===============================================================================
-      ``UMAP_LIBRARY_PATH``        not set  Location of umap library
-      ``UMAP_INCLUDE_PATH``        not set  Location of umap include files
+      ``UMAP_INSTALL_PATH``        not set  Location of umap
       ``CFITS_LIBRARY_PATH``       not set  Location of cfitsio library
       ``CFITS_INCLUDE_PATH``       not set  Location of cfitsio include files
       ``CMAKE_CXX_COMPILER``       not set  C++ compiler to use
@@ -28,9 +26,8 @@ Here is a summary of the configuration options, their default value, and meaning
 
 These arguments are explained in more detail below:
 
-* ``UMAP_INCLUDE_PATH`` and ``UMAP_LIBRARY_PATH``
-  If these are specified, then the applications that use FITS files as the
-  backing store for umap() will be built.
+* ``UMAP_INSTALL_PATH``
+  Location of prerequisite umap installation.
 
 * ``CFITS_INCLUDE_PATH`` and ``CFITS_LIBRARY_PATH``
   If these are specified, then the applications that use FITS files as the
