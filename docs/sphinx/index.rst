@@ -20,9 +20,3 @@ large regions of memory for them.
 
   advanced_configuration
 
-.. toctree::
-  :maxdepth: 2
-  :caption: Documentation
-
-  bfs_documentation
-
