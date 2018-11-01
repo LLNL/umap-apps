@@ -12,17 +12,11 @@ if(OPENMP_FOUND)
     add_executable(nvmebenchmark-read nvmebenchmark.cpp)
     add_executable(nvmebenchmark-write nvmebenchmark.cpp)
 
-    add_dependencies(pfbenchmark-read umap )
-    add_dependencies(pfbenchmark-write umap )
-    add_dependencies(pfbenchmark-readmodifywrite umap )
-    add_dependencies(nvmebenchmark-read umap )
-    add_dependencies(nvmebenchmark-write umap )
-
-    target_link_libraries(pfbenchmark-read umap )
-    target_link_libraries(pfbenchmark-write umap )
-    target_link_libraries(pfbenchmark-readmodifywrite umap )
-    target_link_libraries(nvmebenchmark-read umap )
-    target_link_libraries(nvmebenchmark-write umap )
+    target_link_libraries(pfbenchmark-read ${UMAPLIBDIR}/libumap.a )
+    target_link_libraries(pfbenchmark-write ${UMAPLIBDIR}/libumap.a )
+    target_link_libraries(pfbenchmark-readmodifywrite ${UMAPLIBDIR}/libumap.a )
+    target_link_libraries(nvmebenchmark-read ${UMAPLIBDIR}/libumap.a )
+    target_link_libraries(nvmebenchmark-write ${UMAPLIBDIR}/libumap.a )
 
     include_directories( ${CMAKE_CURRENT_SOURCE_DIR} ${UMAPINCLUDEDIRS} )
 

@@ -6,21 +6,19 @@ This repository contains applications that use the umap library to manage
 large regions of memory for them.
 
 - Take a look at our Getting Started guide for all you need to get up and
-  running with umap.
-
-Any questions? File an issue on GitHub.
+  running.
 
 .. toctree::
   :maxdepth: 2
   :caption: Basics
+
   getting_started
 
 .. toctree::
   :maxdepth: 2
   :caption: Reference
-  advanced_configuration
 
-.. toctree::
-  :maxdepth: 2
-  :caption: Program Documentation
-  ../../src/bfs/README.md
+  advanced_configuration
+  bfs
+  api/api
+
