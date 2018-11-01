@@ -20,23 +20,23 @@ if ( NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES )
 endif()
 
 # Make sure we can find the umap installation
-if ( NOT UMAP_INSTALL_DIR )
+if ( NOT UMAP_INSTALL_PATH )
   message( FATAL_ERROR 
-    "UMAP_INCLUDE_DIR not specified, please make sure to include -DUMAP_INSTALL_DIR=\"<umap install dir>\"")
+    "UMAP_INSTALL_PATH not specified, please make sure to include -DUMAP_INSTALL_PATH=\"<umap install dir>\"")
 endif()
 
-if ( NOT EXISTS ${UMAP_INSTALL_DIR}/include )
+if ( NOT EXISTS ${UMAP_INSTALL_PATH}/include )
   message( FATAL_ERROR
-    "${UMAP_INSTALL_DIR}/include directory does not exist")
+    "${UMAP_INSTALL_PATH}/include directory does not exist")
 endif()
 
-if ( NOT EXISTS ${UMAP_INSTALL_DIR}/lib )
+if ( NOT EXISTS ${UMAP_INSTALL_PATH}/lib )
   message( FATAL_ERROR
-    "${UMAP_INSTALL_DIR}/lib directory does not exist")
+    "${UMAP_INSTALL_PATH}/lib directory does not exist")
 endif()
 
-set (UMAPINCLUDEDIRS "${UMAP_INSTALL_DIR}/include")
-set (UMAPLIBDIR "${UMAP_INSTALL_DIR}/lib")
+set (UMAPINCLUDEDIRS "${UMAP_INSTALL_PATH}/include")
+set (UMAPLIBDIR "${UMAP_INSTALL_PATH}/lib")
 
 add_subdirectory(src)
 
