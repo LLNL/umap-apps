@@ -36,12 +36,11 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
-#include "umap.h"
+#include "umap/umap.h"
 #include "fitsio.h"
 
-#include "spindle_debug.h"
 #include "../utility/commandline.hpp"
-#include "../../src/store/Store.h"
+#include "umap/Store.h"
 
 namespace utility {
 namespace umap_fits_file {
@@ -86,7 +85,6 @@ class CfitsStoreFile : public Store {
       : cube{_cube_}, rsize{_rsize_}, alignsize{_alignsize_}
     {
       if ( posix_memalign(&alignment_buffer, alignsize, alignsize) ) {
-            debug_printf("ERROR: posix_memalign failed\n");
             exit(1);
       }
     }
@@ -108,7 +106,6 @@ class CfitsStoreFile : public Store {
         size_t bytes_to_eof = cube->tile_size - tileoffset;
         size_t bytes_to_read = std::min(bytes_to_eof, nb);
 
-        debug_printf("buf=%p, bytes_to_read=%zu, offset=%zu\n", buf, bytes_to_read, tileoffset);
         if ( ( rval = cube->tiles[tileno].pread(cube->page_size, alignment_buffer, buf, bytes_to_read, tileoffset) ) == -1) {
           perror("ERROR: pread failed");
           exit(1);
@@ -170,7 +167,6 @@ void* PerFits_alloc_cube(
     ss.str(""); ss.clear();
 
     ss << T << endl;
-    debug_printf3("%s\n", ss.str().c_str());
 
     utility::umap_fits_file::Tile_Dim dim = T.get_Dim();
     if ( *BytesPerElement == 0 ) {
@@ -301,7 +297,6 @@ ssize_t Tile::pread(std::size_t alignment, void* cpy_buf, void* buf, std::size_t
   offset -= unaligned_amount;
   char* tbuf = (char*)cpy_buf;
 
-  debug_printf("%zu bytes into %p from offset %zu\n", alignment, buf, offset);
   if ( ( rval = ::pread(file.fd, tbuf, alignment, offset) ) == -1) {
     perror("ERROR: pread failed");
     exit(1);
