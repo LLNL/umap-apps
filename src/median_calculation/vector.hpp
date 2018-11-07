@@ -25,6 +25,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include "utility.hpp"
 
+#define MEDIAN_CALCULATION_VERBOSE_VECTOR 0
+
 struct vector_t
 {
   double x_intercept;
@@ -32,17 +34,6 @@ struct vector_t
   double y_intercept;
   double y_slope;
 };
-
-
-/// \brief Returns an index of a 3D coordinate. vector version
-template <typename pixel_type>
-inline ssize_t get_index(const median::cube_t<pixel_type>& cube, const vector_t& vec, const size_t epoch)
-{
-  return median::get_index(cube,
-                           std::round(vec.x_slope * epoch + vec.x_intercept),
-                           std::round(vec.y_slope * epoch + vec.y_intercept),
-                           epoch);
-}
 
 // Iterator class to use torben function with vector model
 // This class is a minimum implementation of an iterator to use the torben function
@@ -102,7 +93,7 @@ class vector_iterator {
   // value_type val = *iterator
   value_type operator*() {
     assert(!is_out_of_range(current_pos)); // for sanitary check
-    return median::reverse_byte_order(cube.data[get_index(cube, vector, current_pos)]);
+    return median::reverse_byte_order(cube.data[get_index(current_pos)]);
   }
 
   // To support
@@ -136,7 +127,7 @@ class vector_iterator {
         break;
       }
 
-      const value_type current_value = *(*this);
+      const value_type current_value = median::reverse_byte_order(cube.data[get_index(current_pos)]);
       if (!median::is_nan(current_value)) {
         break; // Found next non-'nan' value
       }
@@ -151,7 +142,25 @@ class vector_iterator {
   }
 
   bool is_out_of_range(const size_t pos) {
-    return (get_index(cube, vector, pos) == -1);
+    return (get_index(pos) == -1);
+  }
+
+  /// \brief Returns an index of a 3D coordinate.
+  template <typename pixel_type>
+  ssize_t get_index(const size_t pos_k)
+  {
+    double time_offset = cube.time_stamps[pos_k] - cube.time_stamps[0];
+    const ssize_t pos_x = std::round(vector.x_slope * time_offset + vector.x_intercept);
+    const ssuze_t pos_y = std::round(vector.y_slope * time_offset + vector.y_intercept);
+
+#if MEDIAN_CALCULATION_VERBOSE_VECTOR
+    std::cout << "\nx: " << vector.x_slope << " * " << time_offset << " + " << vector.x_intercept << " = " <<  pos_x << std::endl;
+    std::cout << "y: " << vector.y_slope << " * " << time_offset << " + " << vector.y_intercept << " = " <<  pos_y << std::endl;
+    std::cout << "k: " << pos_x << std::endl;
+    std::cout << "index: " << median::get_index(cube, pos_x, pos_y, pos_k) << std::endl;
+#endif
+
+    return median::get_index(cube, pos_x, pos_y, pos_k);
   }
 
   median::cube_t<pixel_type> cube;

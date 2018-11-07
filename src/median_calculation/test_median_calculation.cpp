@@ -42,6 +42,8 @@ int main(int argc, char** argv)
 
   cube.data = (float*)utility::umap_fits_file::PerFits_alloc_cube(
       options.filename, &BytesPerElement, &cube.size_x, &cube.size_y, &cube.size_k);
+  cube.time_stamps = new double[cube.size_k];
+  for (size_t i = 0; i < cube.size_k; ++i) cube.time_stamps[i] = i * 1.0;
 
   for (int i = 0; i < num_vectors; ++i) {
     std::cout << "Vector " << i << std::endl;
@@ -64,6 +66,7 @@ int main(int argc, char** argv)
     }
   }
 
+  delete[] cube.time_stamps;
   utility::umap_fits_file::PerFits_free_cube(cube.data);
 
   std::cout << "Passed all tests" << std::endl;

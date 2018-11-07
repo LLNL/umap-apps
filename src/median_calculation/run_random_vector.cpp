@@ -14,11 +14,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
 #include <iostream>
+#include <fstream>
 #include <random>
 #include <vector>
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -68,8 +70,8 @@ shoot_vector(const median::cube_t<pixel_type> &cube, const std::size_t num_rando
 #else
     std::mt19937 rnd_engine(123);
 #endif
-    std::uniform_int_distribution<int> x_start_dist(0.2 * cube.size_x, 0.8 * cube.size_x);
-    std::uniform_int_distribution<int> y_start_dist(0.2 * cube.size_y, 0.8 * cube.size_y);
+    std::uniform_int_distribution<int> x_start_dist(0, cube.size_x - 1);
+    std::uniform_int_distribution<int> y_start_dist(0, cube.size_y - 1);
     beta_distribution x_beta_dist(3, 2);
     beta_distribution y_beta_dist(3, 2);
     std::discrete_distribution<int> plus_or_minus{-1, 1};
@@ -128,14 +130,10 @@ void print_top_median(const median::cube_t<pixel_type> &cube, std::vector<std::p
               << "\n Vector: " << vector.x_slope << " " << vector.x_intercept
               << " " << vector.y_slope << " " << vector.y_intercept << std::endl;
 
-    for (size_t k = 0; k < cube.size_k; ++k) {
-      const ssize_t index = get_index(cube, vector, k);
-      if (index == -1) continue;
-      const pixel_type value = median::reverse_byte_order(cube.data[index]);
-      if (median::is_nan(value))
-        std::cout << " 'NaN'";
-      else
-        std::cout << " " << median::reverse_byte_order(cube.data[index]);
+    vector_iterator<pixel_type> iterator(cube, vector, 0);
+    vector_iterator<pixel_type> end(vector_iterator<pixel_type>::create_end(cube, vector));
+    for (; iterator != end; ++iterator) {
+        std::cout << " " << *iterator;
     }
     std::cout << std::endl;
   }
@@ -166,10 +164,37 @@ int main(int argc, char **argv) {
     std::abort();
   }
 
-  const char* buf = std::getenv("NUM_VECTORS");
+  {
+    const char *time_stamp_file_name = std::getenv("TIME_STAMP_FILE");
+    if (time_stamp_file_name != nullptr) {
+      std::ifstream ifs(time_stamp_file_name);
+      if (!ifs.is_open()) {
+        std::cerr << "Cannot open " << time_stamp_file_name << std::endl;
+        std::abort();
+      }
+      std::vector<double> time_stamps;
+      for (double time_stamp; ifs >> time_stamp;) {
+        time_stamps.emplace_back(time_stamp);
+      }
+      if (time_stamps.size() != cube.size_k) {
+        std::cerr << "#of lines in " << time_stamp_file_name << " is not the same as #of fits files" << std::endl;
+        std::abort();
+      }
+      cube.time_stamps = new double[time_stamps.size()];
+      std::memcpy(cube.time_stamps, time_stamps.data(), sizeof(double) * time_stamps.size());
+    } else {
+      // If a list of time stamps is not given, assume that the difference between two frames is 1.0
+      cube.time_stamps = new double[cube.size_k];
+      for (size_t i = 0; i < cube.size_k; ++i) cube.time_stamps[i] = i * 1.0;
+    }
+  }
+
   std::size_t num_random_vector = default_num_random_vector;
-  if (buf != nullptr) {
-    num_random_vector = std::stoll(buf);
+  {
+    const char *buf = std::getenv("NUM_VECTORS");
+    if (buf != nullptr) {
+      num_random_vector = std::stoll(buf);
+    }
   }
 
   auto result = shoot_vector(cube, num_random_vector);
@@ -178,6 +203,7 @@ int main(int argc, char **argv) {
             << "\nvectors/sec = " << static_cast<double>(num_random_vector) / result.first << std::endl;
   print_top_median(cube, result.second);
 
+  delete[] cube.time_stamps;
   utility::umap_fits_file::PerFits_free_cube(cube.data);
 
   return 0;

@@ -31,7 +31,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <cassert>
 
 #define MEDIAN_CALCULATION_COLUMN_MAJOR 1
-// #define MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
+#define MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE 0
 
 namespace median
 {
@@ -44,25 +44,26 @@ struct cube_t {
   size_t size_y;
   size_t size_k;
   pixel_type *data;
+  double* time_stamps; // an array of the time stamp of each frame.
 };
 
 /// \brief Return frame size
 template <typename pixel_type>
-inline size_t get_frame_size(const cube_t<pixel_type>& cube)
+size_t get_frame_size(const cube_t<pixel_type>& cube)
 {
   return cube.size_x * cube.size_y;
 }
 
 /// \brief Return cube size
 template <typename pixel_type>
-inline size_t get_cube_size(const cube_t<pixel_type>& cube)
+size_t get_cube_size(const cube_t<pixel_type>& cube)
 {
   return cube.size_x * cube.size_y * cube.size_k;
 }
 
 /// \brief Returns an index of a 3D coordinate
 template <typename pixel_type>
-inline ssize_t get_index(const cube_t<pixel_type>& cube, const size_t x, const size_t y, const size_t k)
+ssize_t get_index(const cube_t<pixel_type>& cube, const size_t x, const size_t y, const size_t k)
 {
 #if MEDIAN_CALCULATION_COLUMN_MAJOR
   const ssize_t frame_index = x + y * cube.size_x;
@@ -71,7 +72,7 @@ inline ssize_t get_index(const cube_t<pixel_type>& cube, const size_t x, const s
 #endif
 
   if (get_frame_size(cube) <= frame_index) {
-#ifdef MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
+#if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
     std::cerr << "Frame index is out-of-range: "
               << "(" << x << ", " << y << ") is out of "
               << "(" << cube.size_x << ", " << cube.size_y << ")" << std::endl;
@@ -82,7 +83,7 @@ inline ssize_t get_index(const cube_t<pixel_type>& cube, const size_t x, const s
   const ssize_t cube_index = frame_index + k * get_frame_size(cube);
 
   if (get_cube_size(cube) <= cube_index) {
-#ifdef MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
+#if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
     std::cerr << "Cube index is out-of-range: "
               << "(" << x << ", " << y << ", " << k << ") is out of "
               << "(" << cube.size_x << ", " << cube.size_y << ", " << cube.size_k << ")" << std::endl;
@@ -98,7 +99,7 @@ inline ssize_t get_index(const cube_t<pixel_type>& cube, const size_t x, const s
 /// \param x Input value
 /// \return Given value being reversed byte order
 template <typename T>
-inline T reverse_byte_order(const T x)
+T reverse_byte_order(const T x)
 {
   static_assert(sizeof(T) == 4, "T is not a 4 byte of type");
   T reversed_x;
