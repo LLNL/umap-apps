@@ -146,12 +146,11 @@ class vector_iterator {
   }
 
   /// \brief Returns an index of a 3D coordinate.
-  template <typename pixel_type>
   ssize_t get_index(const size_t pos_k)
   {
     double time_offset = cube.time_stamps[pos_k] - cube.time_stamps[0];
     const ssize_t pos_x = std::round(vector.x_slope * time_offset + vector.x_intercept);
-    const ssuze_t pos_y = std::round(vector.y_slope * time_offset + vector.y_intercept);
+    const ssize_t pos_y = std::round(vector.y_slope * time_offset + vector.y_intercept);
 
 #if MEDIAN_CALCULATION_VERBOSE_VECTOR
     std::cout << "\nx: " << vector.x_slope << " * " << time_offset << " + " << vector.x_intercept << " = " <<  pos_x << std::endl;

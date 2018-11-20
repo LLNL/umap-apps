@@ -33,7 +33,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "vector.hpp"
 #include "../utility/time.hpp"
 
-using pixel_type = float;
+using pixel_t = float;
 constexpr size_t default_num_random_vector = 100000;
 
 class beta_distribution {
@@ -54,10 +54,10 @@ class beta_distribution {
   std::gamma_distribution<> m_y_gamma;
 };
 
-std::pair<double, std::vector<std::pair<pixel_type, vector_t>>>
-shoot_vector(const median::cube_t<pixel_type> &cube, const std::size_t num_random_vector) {
+std::pair<double, std::vector<std::pair<pixel_t, vector_t>>>
+shoot_vector(const median::cube_t<pixel_t> &cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
-  std::vector<std::pair<pixel_type, vector_t>> result(num_random_vector);
+  std::vector<std::pair<pixel_t, vector_t>> result(num_random_vector);
 
   double total_execution_time = 0.0;
 
@@ -93,8 +93,8 @@ shoot_vector(const median::cube_t<pixel_type> &cube, const std::size_t num_rando
 
       vector_t vector{x_intercept, x_slope, y_intercept, y_slope};
 
-      vector_iterator<pixel_type> begin(cube, vector, 0);
-      vector_iterator<pixel_type> end(vector_iterator<pixel_type>::create_end(cube, vector));
+      vector_iterator<pixel_t> begin(cube, vector, 0);
+      vector_iterator<pixel_t> end(vector_iterator<pixel_t>::create_end(cube, vector));
 
       // median calculation using Torben algorithm
       const auto start = utility::elapsed_time_sec();
@@ -107,13 +107,13 @@ shoot_vector(const median::cube_t<pixel_type> &cube, const std::size_t num_rando
   return std::make_pair(total_execution_time, result);
 }
 
-void print_top_median(const median::cube_t<pixel_type> &cube, std::vector<std::pair<pixel_type, vector_t>> &result) {
+void print_top_median(const median::cube_t<pixel_t> &cube, std::vector<std::pair<pixel_t, vector_t>> &result) {
   // Sort the results by the descending order of median value
   std::partial_sort(result.begin(),
                     result.begin() + 10, // get only top 10 elements
                     result.end(),
-                    [](const std::pair<pixel_type, vector_t> &lhd,
-                       const std::pair<pixel_type, vector_t> &rhd) {
+                    [](const std::pair<pixel_t, vector_t> &lhd,
+                       const std::pair<pixel_t, vector_t> &rhd) {
                       return (lhd.first > rhd.first);
                     });
 
@@ -123,15 +123,15 @@ void print_top_median(const median::cube_t<pixel_type> &cube, std::vector<std::p
   std::cout.setf(std::ios::fixed, std::ios::floatfield);
   std::cout.precision(2);
   for (size_t i = 0; i < 10; ++i) {
-    const pixel_type median = result[i].first;
+    const pixel_t median = result[i].first;
     const vector_t vector = result[i].second;
     std::cout << "[" << i << "]"
               << "\n Median: " << median
               << "\n Vector: " << vector.x_slope << " " << vector.x_intercept
               << " " << vector.y_slope << " " << vector.y_intercept << std::endl;
 
-    vector_iterator<pixel_type> iterator(cube, vector, 0);
-    vector_iterator<pixel_type> end(vector_iterator<pixel_type>::create_end(cube, vector));
+    vector_iterator<pixel_t> iterator(cube, vector, 0);
+    vector_iterator<pixel_t> end(vector_iterator<pixel_t>::create_end(cube, vector));
     for (; iterator != end; ++iterator) {
         std::cout << " " << *iterator;
     }
@@ -148,10 +148,10 @@ int main(int argc, char **argv) {
 #endif
 
   size_t BytesPerElement;
-  median::cube_t<pixel_type> cube;
+  median::cube_t<pixel_t> cube;
 
   // Alloc memory space and read data from fits files with umap
-  cube.data = (pixel_type *)utility::umap_fits_file::PerFits_alloc_cube(
+  cube.data = (pixel_t *)utility::umap_fits_file::PerFits_alloc_cube(
       options.filename, &BytesPerElement, &cube.size_x, &cube.size_y, &cube.size_k);
 
   if (cube.data == nullptr) {
@@ -159,7 +159,7 @@ int main(int argc, char **argv) {
     std::abort();
   }
 
-  if (sizeof(pixel_type) != BytesPerElement) {
+  if (sizeof(pixel_t) != BytesPerElement) {
     std::cerr << "Wrong pixel type" << std::endl;
     std::abort();
   }

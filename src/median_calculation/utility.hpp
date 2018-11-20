@@ -33,8 +33,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define MEDIAN_CALCULATION_COLUMN_MAJOR 1
 #define MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE 0
 
-namespace median
-{
+namespace median {
 
 template <typename _pixel_type>
 struct cube_t {
@@ -44,27 +43,24 @@ struct cube_t {
   size_t size_y;
   size_t size_k;
   pixel_type *data;
-  double* time_stamps; // an array of the time stamp of each frame.
+  double *time_stamps; // an array of the time stamp of each frame.
 };
 
 /// \brief Return frame size
 template <typename pixel_type>
-size_t get_frame_size(const cube_t<pixel_type>& cube)
-{
+size_t get_frame_size(const cube_t<pixel_type> &cube) {
   return cube.size_x * cube.size_y;
 }
 
 /// \brief Return cube size
 template <typename pixel_type>
-size_t get_cube_size(const cube_t<pixel_type>& cube)
-{
+size_t get_cube_size(const cube_t<pixel_type> &cube) {
   return cube.size_x * cube.size_y * cube.size_k;
 }
 
 /// \brief Returns an index of a 3D coordinate
 template <typename pixel_type>
-ssize_t get_index(const cube_t<pixel_type>& cube, const size_t x, const size_t y, const size_t k)
-{
+ssize_t get_index(const cube_t<pixel_type> &cube, const size_t x, const size_t y, const size_t k) {
 #if MEDIAN_CALCULATION_COLUMN_MAJOR
   const ssize_t frame_index = x + y * cube.size_x;
 #else
@@ -99,8 +95,7 @@ ssize_t get_index(const cube_t<pixel_type>& cube, const size_t x, const size_t y
 /// \param x Input value
 /// \return Given value being reversed byte order
 template <typename T>
-T reverse_byte_order(const T x)
-{
+T reverse_byte_order(const T x) {
   static_assert(sizeof(T) == 4, "T is not a 4 byte of type");
   T reversed_x;
   auto *const p1 = reinterpret_cast<const char *>(&x);
@@ -114,8 +109,7 @@ T reverse_byte_order(const T x)
 }
 
 template <typename pixel_type>
-bool is_nan(const pixel_type value)
-{
+bool is_nan(const pixel_type value) {
   return std::isnan(value);
 }
 
