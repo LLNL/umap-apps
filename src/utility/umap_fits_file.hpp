@@ -30,6 +30,7 @@
 #include <cassert>
 #include <unordered_map>
 #include <algorithm>
+#include <cassert>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -290,23 +291,31 @@ Tile::Tile(const std::string& _fn)
 
 ssize_t Tile::pread(std::size_t alignment, void* cpy_buf, void* buf, std::size_t nbytes, off_t offset)
 {
-  std::size_t rval;
+  off_t data_offset = offset + file.tile_start;
+  off_t aligned_data_offset = data_offset & ~(alignment - 1);
 
-  offset += file.tile_start;  // Skip to data portion of file
-  off_t unaligned_amount = offset & (alignment - 1);
-  offset -= unaligned_amount;
+  assert("pread: invalid offset received" 
+      && aligned_data_offset >= 0 
+      && aligned_data_offset < (file.tile_start + file.tile_size));
+
+  off_t bytes_read;
   char* tbuf = (char*)cpy_buf;
-
-  if ( ( rval = ::pread(file.fd, tbuf, alignment, offset) ) == -1) {
+  if ((bytes_read = ::pread(file.fd, tbuf, alignment, aligned_data_offset)) == -1) {
     perror("ERROR: pread failed");
     exit(1);
   }
 
-  ssize_t amount_to_copy = std::min(rval, nbytes) - unaligned_amount;
+  off_t skip_bytes = data_offset - aligned_data_offset;
+  off_t data_bytes = alignment - skip_bytes;
 
-  memcpy(buf, &tbuf[unaligned_amount], amount_to_copy);
+  assert("Incorrect number of bytes read" && data_bytes > 0);
 
-  return amount_to_copy;
+  data_bytes = std::min(bytes_read, data_bytes);
+  data_bytes = std::min((off_t)nbytes, data_bytes);
+
+  memcpy(buf, &tbuf[skip_bytes], data_bytes);
+
+  return data_bytes;
 }
 
 std::ostream &operator<<(std::ostream &os, Tile const &ft)
