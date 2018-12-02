@@ -63,7 +63,7 @@ class Tile {
 friend std::ostream &operator<<(std::ostream &os, utility::umap_fits_file::Tile const &ft);
 public:
   Tile(const std::string& _fn);
-  ssize_t pread(std::size_t alignment, void* cpy_buf, void* buf, std::size_t nbytes, off_t offset);
+  ssize_t buffered_read(char*, std::size_t, void*, std::size_t, off_t);
   Tile_Dim get_Dim() { return dim; }
 private:
   Tile_File file;
@@ -82,16 +82,16 @@ static std::unordered_map<void*, Cube*>  Cubes;
 
 class CfitsStoreFile : public Store {
   public:
-    CfitsStoreFile(Cube* _cube_, size_t _rsize_, size_t _alignsize_)
-      : cube{_cube_}, rsize{_rsize_}, alignsize{_alignsize_}
+    CfitsStoreFile(Cube* _cube_, size_t _rsize_, size_t _aligned_size)
+      : cube{_cube_}, rsize{_rsize_}, aligned_size{_aligned_size}
     {
-      if ( posix_memalign(&alignment_buffer, alignsize, alignsize) ) {
+      if ( posix_memalign((void**)(&aligned_buf), aligned_size, aligned_size) ) {
             exit(1);
       }
     }
 
     ~CfitsStoreFile() {
-      free(alignment_buffer);
+      free(aligned_buf);
     }
 
     ssize_t read_from_store(char* buf, size_t nb, off_t off) {
@@ -107,8 +107,8 @@ class CfitsStoreFile : public Store {
         size_t bytes_to_eof = cube->tile_size - tileoffset;
         size_t bytes_to_read = std::min(bytes_to_eof, nb);
 
-        if ( ( rval = cube->tiles[tileno].pread(cube->page_size, alignment_buffer, buf, bytes_to_read, tileoffset) ) == -1) {
-          perror("ERROR: pread failed");
+        if ( ( rval = cube->tiles[tileno].buffered_read(aligned_buf, aligned_size, buf, bytes_to_read, tileoffset) ) == -1) {
+          perror("ERROR: buffered_read failed");
           exit(1);
         }
 
@@ -130,9 +130,9 @@ class CfitsStoreFile : public Store {
 
   private:
     Cube* cube;
-    void* alignment_buffer;
+    char* aligned_buf;
     size_t rsize;
-    size_t alignsize;
+    size_t aligned_size;
     int fd;
 };
 
@@ -289,33 +289,31 @@ Tile::Tile(const std::string& _fn)
   assert( (dataend - datastart) >= (dim.xDim * dim.yDim * dim.elem_size) );
 }
 
-ssize_t Tile::pread(std::size_t alignment, void* cpy_buf, void* buf, std::size_t nbytes, off_t offset)
+ssize_t Tile::buffered_read(char* aligned_buf, std::size_t aligned_size, void* request_buf, std::size_t request_size, off_t request_offset)
 {
-  off_t data_offset = offset + file.tile_start;
-  off_t aligned_data_offset = data_offset & ~(alignment - 1);
+  off_t data_offset = request_offset + file.tile_start;
+  off_t aligned_data_offset = data_offset & ~(aligned_size - 1);
+  off_t copy_start_offset = data_offset - aligned_data_offset;
+  off_t copy_amount = aligned_size - copy_start_offset;
 
-  assert("pread: invalid offset received" 
+  assert("buffered_read: invalid offset received" 
       && aligned_data_offset >= 0 
       && aligned_data_offset < (file.tile_start + file.tile_size));
 
   off_t bytes_read;
-  char* tbuf = (char*)cpy_buf;
-  if ((bytes_read = ::pread(file.fd, tbuf, alignment, aligned_data_offset)) == -1) {
+  if ((bytes_read = ::pread(file.fd, aligned_buf, aligned_size, aligned_data_offset)) == -1) {
     perror("ERROR: pread failed");
     exit(1);
   }
 
-  off_t skip_bytes = data_offset - aligned_data_offset;
-  off_t data_bytes = alignment - skip_bytes;
+  assert("Incorrect number of bytes read" && copy_amount > 0);
 
-  assert("Incorrect number of bytes read" && data_bytes > 0);
+  copy_amount = std::min(bytes_read, copy_amount);
+  copy_amount = std::min((off_t)request_size, copy_amount);
 
-  data_bytes = std::min(bytes_read, data_bytes);
-  data_bytes = std::min((off_t)nbytes, data_bytes);
+  memcpy(request_buf, &aligned_buf[copy_start_offset], copy_amount);
 
-  memcpy(buf, &tbuf[skip_bytes], data_bytes);
-
-  return data_bytes;
+  return copy_amount;
 }
 
 std::ostream &operator<<(std::ostream &os, Tile const &ft)
