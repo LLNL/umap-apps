@@ -33,7 +33,7 @@ void parse_options(int argc, char **argv,
   graph_file_name = "";
   bfs_level_reference_file_name = "";
 
-  char c;
+  int c;
   while ((c = getopt(argc, argv, "n:m:g:l:h")) != -1) {
     switch (c) {
       case 'n': /// Required

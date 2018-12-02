@@ -47,7 +47,7 @@ static inline uint64_t getns(void)
 }
 
 void initdata(uint64_t *region, uint64_t rlen) {
-  fprintf(stdout, "initdata: %p, %llu\n", region, rlen);
+  fprintf(stdout, "initdata: %p, %lu\n", region, rlen);
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<uint64_t> rnd_int;
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
     return -1;
 
   fprintf(stdout, "umap INIT took %f seconds\n", (double)(getns() - start)/1000000000.0);
-  fprintf(stdout, "%lu pages, %llu bytes, %lu threads\n", options.numpages, totalbytes, options.numthreads);
+  fprintf(stdout, "%lu pages, %lu bytes, %lu threads\n", options.numpages, totalbytes, options.numthreads);
 
   uint64_t *arr = (uint64_t *) base_addr;
   arraysize = totalbytes/sizeof(uint64_t);
