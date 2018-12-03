@@ -59,7 +59,7 @@ void ingest_edges(void *const map_raw_address, const uint64_t max_id, const std:
 
   uint64_t *const index = new uint64_t[max_id + 2];
   for (size_t i = 0; i < max_id + 2; ++i) index[i] = 0;
-  std::cout << static_cast<double>((max_id + 2) * sizeof(uint64_t) / (1ULL << 30))
+  std::cout << static_cast<double>((max_id + 2) * sizeof(uint64_t)) / (1ULL << 30)
             << " GB is allocated for index" << std::endl;
 
   std::cout << "---------- Count degree ----------" << std::endl;
@@ -140,7 +140,7 @@ void parse_options(int argc, char **argv,
   }
 
   for (int index = optind; index < argc; index++) {
-    edge_list_file_names.push_back(argv[index]);
+    edge_list_file_names.emplace_back(argv[index]);
   }
 }
 

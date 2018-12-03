@@ -96,7 +96,7 @@ bool parse_options(int argc, char **argv, rmat_option_t *option, std::string *ou
 // ---------------------------------------- //
 // Utility
 // ---------------------------------------- //
-size_t num_threads() {
+int num_threads() {
 #ifdef _OPENMP
   return omp_get_num_threads();
 #else
@@ -104,7 +104,7 @@ size_t num_threads() {
 #endif
 }
 
-size_t thread_num() {
+int thread_num() {
 #ifdef _OPENMP
   return omp_get_thread_num();
 #else
@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
   std::string out_edge_list_file_name;
   parse_options(argc, argv, &rmat_option, &out_edge_list_file_name);
 
-  size_t num_generated_edges = 0;
+  uint64_t num_generated_edges = 0;
 
 #ifdef _OPENMP
 #pragma omp parallel reduction(+:num_generated_edges)
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
   }
 
   // Sanity check
-  const size_t num_edges_supposed_to_generate = (rmat_option.generate_both_directions) ? rmat_option.edge_count * 2ULL : rmat_option.edge_count;
+  const uint64_t num_edges_supposed_to_generate = (rmat_option.generate_both_directions) ? rmat_option.edge_count * 2ULL : rmat_option.edge_count;
   if (num_edges_supposed_to_generate != num_generated_edges) {
     std::cerr << "The number of generated edges is wrong"
               << "\n#edges generated: " << num_generated_edges

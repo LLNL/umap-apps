@@ -25,14 +25,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string>
 
 namespace utility {
-void extend_file_size_manually(const int fd, const ssize_t file_size) {
+void extend_file_size_manually(const int fd, const size_t file_size) {
   auto buffer = new unsigned char[4096];
   for (off_t i = 0; i < file_size / 4096; ++i) {
     ::pwrite(fd, buffer, 4096, i * 4096);
   }
   const size_t remained_size = file_size % 4096;
   if (remained_size > 0)
-    ::pwrite(fd, buffer, remained_size, file_size - remained_size);
+    ::pwrite(fd, buffer, remained_size, static_cast<off_t>(file_size - remained_size));
 
   ::sync();
   delete[] buffer;
@@ -55,7 +55,7 @@ bool extend_file_size(const int fd, const size_t file_size) {
     }
   }
 #else
-#warning "Manually extend file size"
+#warning "Manually extend file size instead of using ftruncate(2)"
   extend_file_size_manually(fd, file_size);
 #endif
   return true;

@@ -35,8 +35,8 @@ struct vector_t
   double y_slope;
 };
 
-// Iterator class to use torben function with vector model
-// This class is a minimum implementation of an iterator to use the torben function
+// Iterator class to use the Torben function with vector model
+// This class is a minimum implementation of an iterator to use the Torben function
 template <typename pixel_type>
 class vector_iterator {
  public:
@@ -56,7 +56,7 @@ class vector_iterator {
         current_pos(_start_pos) {
     // Note that when 'end' iterator is given to copy-constructor and MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE is ON,
     // this code will trigger the out-of-range error message in get_index() function
-    // although passing an 'end' iterator to copy-constructor is an expected behaivor
+    // although passing an 'end' iterator to copy-constructor is an expected behavior
     if (is_out_of_range(current_pos)) {
       move_to_end();
       return;
@@ -92,7 +92,7 @@ class vector_iterator {
   // To support
   // value_type val = *iterator
   value_type operator*() {
-    assert(!is_out_of_range(current_pos)); // for sanitary check
+    assert(!is_out_of_range(current_pos)); // for sanity check
     return median::reverse_byte_order(cube.data[get_index(current_pos)]);
   }
 

@@ -14,7 +14,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 /*
 The original code of Torben algorithm is in public domain
-Its algorithm is developed by Torben Mogensen and implementated by N. Devillard
+Its algorithm is developed by Torben Mogensen and implemented by N. Devillard
 This version considerably modified
 This implementation also contains the modification proposed in https://github.com/sarnold/medians-1D/issues/8
 */
