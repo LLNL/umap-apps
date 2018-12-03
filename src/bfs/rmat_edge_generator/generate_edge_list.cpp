@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
 #pragma omp parallel reduction(+:num_generated_edges)
 #endif
   {
-    const int num_edges_per_thread = num_local_edges(0, rmat_option.edge_count - 1, thread_num(), num_threads());
+    const uint64_t num_edges_per_thread = num_local_edges(0, rmat_option.edge_count - 1, thread_num(), num_threads());
     const uint64_t seed = rmat_option.seed + thread_num();
 
     rmat_edge_generator rmat(seed, rmat_option.vertex_scale, num_edges_per_thread,
