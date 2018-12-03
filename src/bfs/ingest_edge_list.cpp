@@ -126,7 +126,7 @@ void parse_options(int argc, char **argv,
                    std::vector<std::string> &edge_list_file_names) {
   graph_file_name = "";
 
-  char c;
+  int c;
   while ((c = getopt(argc, argv, "g:h")) != -1) {
     switch (c) {
       case 'g': /// Required

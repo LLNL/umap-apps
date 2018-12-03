@@ -30,7 +30,7 @@ void parse_options(int argc, char **argv,
   num_edges = 0;
   graph_file_name = "";
 
-  char c;
+  int c;
   while ((c = getopt(argc, argv, "n:m:g:h")) != -1) {
     switch (c) {
       case 'n': /// Required

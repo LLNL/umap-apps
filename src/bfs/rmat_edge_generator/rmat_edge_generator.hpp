@@ -52,6 +52,7 @@
 #ifndef BFS_RMAT_EDGE_GENERATOR_HPP
 #define BFS_RMAT_EDGE_GENERATOR_HPP
 
+#include <cstddef>
 #include <iostream>
 #include <random>
 #include <cassert>
