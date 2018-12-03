@@ -168,10 +168,12 @@ int main(int argc, char **argv) {
     edge_list_file.close();
   }
 
-  // Sanitary check
+  // Sanity check
   const size_t num_edges_supposed_to_generate = (rmat_option.generate_both_directions) ? rmat_option.edge_count * 2ULL : rmat_option.edge_count;
   if (num_edges_supposed_to_generate != num_generated_edges) {
-    std::cerr << "The number of generated edges is wrong " << num_generated_edges << std::endl;
+    std::cerr << "The number of generated edges is wrong"
+              << "\n#edges generated: " << num_generated_edges
+              << "\n#edges supposed to be generated: " << num_edges_supposed_to_generate << std::endl;
     std::abort();
   }
 
