@@ -124,7 +124,7 @@ shoot_vector(const median::cube_t<pixel_t> &cube, const std::size_t num_random_v
     std::uniform_int_distribution<int> y_start_dist(0, cube.size_y - 1);
     beta_distribution x_beta_dist(3, 2);
     beta_distribution y_beta_dist(3, 2);
-    std::discrete_distribution<int> plus_or_minus{-1, 1};
+    std::uniform_int_distribution<int> plus_or_minus(0, 1);
 
     // Shoot random vectors using multiple threads
 #ifdef _OPENMP
@@ -138,8 +138,8 @@ shoot_vector(const median::cube_t<pixel_t> &cube, const std::size_t num_random_v
       // out of range of the cube with a large number of frames
       //
       // This is a temporary measures
-      double x_slope = x_beta_dist(rnd_engine) * plus_or_minus(rnd_engine) * 2;
-      double y_slope = y_beta_dist(rnd_engine) * plus_or_minus(rnd_engine) * 2;
+      double x_slope = x_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
+      double y_slope = y_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
 
       vector_t vector{x_intercept, x_slope, y_intercept, y_slope};
 

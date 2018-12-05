@@ -60,8 +60,8 @@ size_t get_cube_size(const cube_t<pixel_type> &cube) {
 
 /// \brief Returns an index of a 3D coordinate
 template <typename pixel_type>
-ssize_t get_index_in_cube(const cube_t<pixel_type> &cube, const size_t x, const size_t y, const size_t k) {
-  if (cube.size_x <= x || cube.size_y <= y) {
+ssize_t get_index_in_cube(const cube_t<pixel_type> &cube, const ssize_t x, const ssize_t y, const ssize_t k) {
+  if (x < 0 || cube.size_x <= x || y < 0 || cube.size_y <= y) {
 #if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
     std::cerr << "Frame index is out-of-range: "
               << "(" << x << ", " << y << ") is out of "
@@ -70,7 +70,7 @@ ssize_t get_index_in_cube(const cube_t<pixel_type> &cube, const size_t x, const 
     return -1;
   }
 
-  if (cube.size_k <= k) {
+  if (k < 0 || cube.size_k <= k) {
 #if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
     std::cerr << "Cube index is out-of-range: "
               << "(" << x << ", " << y << ", " << k << ") is out of "

@@ -11,7 +11,7 @@ import math
 def read_pixel(fits, x, y):
     #print (fits)
     image_data = astropy.io.fits.getdata(fits, ext=0)
-    if y < image_data.shape[0] and x < image_data.shape[1]:
+    if (y >= 0 and y < image_data.shape[0]) and (x >= 0 and x < image_data.shape[1]):
         print(image_data[y][x])
     else:
         print(-1)
