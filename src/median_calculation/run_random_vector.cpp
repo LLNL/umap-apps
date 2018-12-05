@@ -54,6 +54,56 @@ class beta_distribution {
   std::gamma_distribution<> m_y_gamma;
 };
 
+void map_fits(const std::string& filename, median::cube_t<pixel_t> &cube) {
+  size_t byte_per_element;
+  // Map FITS files using UMap
+  cube.data = (pixel_t *)utility::umap_fits_file::PerFits_alloc_cube(filename, &byte_per_element, &cube.size_x, &cube.size_y, &cube.size_k);
+
+  if (cube.data == nullptr) {
+    std::cerr << "Failed to allocate memory for cube" << std::endl;
+    std::abort();
+  }
+
+  if (sizeof(pixel_t) != byte_per_element) {
+    std::cerr << "Wrong pixel type" << std::endl;
+    std::abort();
+  }
+}
+
+std::size_t get_num_vectors() {
+  std::size_t num_random_vector = default_num_random_vector;
+  const char *buf = std::getenv("NUM_VECTORS");
+  if (buf != nullptr) {
+    num_random_vector = std::stoll(buf);
+  }
+  return num_random_vector;
+}
+
+void set_timestamp(median::cube_t<pixel_t> &cube) {
+  const char *timestamp_file_name = std::getenv("TIMESTAMP_FILE");
+  if (timestamp_file_name != nullptr) {
+    std::ifstream ifs(timestamp_file_name);
+    if (!ifs.is_open()) {
+      std::cerr << "Cannot open " << timestamp_file_name << std::endl;
+      std::abort();
+    }
+    std::vector<double> timestamps;
+    for (double timestamp; ifs >> timestamp;) {
+      timestamps.emplace_back(timestamp);
+    }
+    if (timestamps.size() != cube.size_k) {
+      std::cerr << "#of lines in " << timestamp_file_name << " is not the same as #of fits files" << std::endl;
+      std::abort();
+    }
+    cube.timestamps = new double[timestamps.size()];
+    std::memcpy(cube.timestamps, timestamps.data(), sizeof(double) * timestamps.size());
+  } else {
+    // If a list of timestamps is not given, assume that the difference between two frames is 1.0
+    cube.timestamps = new double[cube.size_k];
+    for (size_t i = 0; i < cube.size_k; ++i) cube.timestamps[i] = i * 1.0;
+  }
+}
+
 std::pair<double, std::vector<std::pair<pixel_t, vector_t>>>
 shoot_vector(const median::cube_t<pixel_t> &cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
@@ -107,33 +157,35 @@ shoot_vector(const median::cube_t<pixel_t> &cube, const std::size_t num_random_v
   return std::make_pair(total_execution_time, result);
 }
 
-void print_top_median(const median::cube_t<pixel_t> &cube, std::vector<std::pair<pixel_t, vector_t>> &result) {
+void print_top_median(const median::cube_t<pixel_t> &cube,
+                      const size_t num_top,
+                      std::vector<std::pair<pixel_t, vector_t>> &result) {
   // Sort the results by the descending order of median value
   std::partial_sort(result.begin(),
-                    result.begin() + 10, // get only top 10 elements
+                    result.begin() + num_top, // get only top 10 elements
                     result.end(),
                     [](const std::pair<pixel_t, vector_t> &lhd,
                        const std::pair<pixel_t, vector_t> &rhd) {
                       return (lhd.first > rhd.first);
                     });
 
-  // Print out the top 10 median values and corresponding pixel values
-  std::cout << "Top 10 median and corresponding pixel values (NaN values are not used in median calculation)"
-            << std::endl;
-  std::cout.setf(std::ios::fixed, std::ios::floatfield);
-  std::cout.precision(2);
-  for (size_t i = 0; i < 10; ++i) {
+  // Print out the top 'num_top' median values and corresponding pixel values
+  std::cout << "Top " << num_top << " median and pixel values (skip NaN value)" << std::endl;
+  for (size_t i = 0; i < num_top; ++i) {
     const pixel_t median = result[i].first;
     const vector_t vector = result[i].second;
-    std::cout << "[" << i << "]"
-              << "\n Median: " << median
-              << "\n Vector: " << vector.x_slope << " " << vector.x_intercept
-              << " " << vector.y_slope << " " << vector.y_intercept << std::endl;
+    std::cout << "[" << i << "]" << std::endl;
+    std::cout << "Median: " << median << std::endl;
+    std::cout << "Vector (x-slope, x-intercept, y-slope, y-intercept): "
+              << vector.x_slope << ", " << vector.x_intercept << ", " << vector.y_slope << ", " << vector.y_intercept << std::endl;
 
+    std::cout << "Values (x, y, k):" << std::endl;
     vector_iterator<pixel_t> iterator(cube, vector, 0);
     vector_iterator<pixel_t> end(vector_iterator<pixel_t>::create_end(cube, vector));
     for (; iterator != end; ++iterator) {
-        std::cout << " " << *iterator;
+      ssize_t x, y, k;
+      std::tie(x, y, k) = iterator.coordinate();
+      std::cout << " [ " << x << ", " << y << ", " << k << " ] = " << *iterator << std::endl;
     }
     std::cout << std::endl;
   }
@@ -147,63 +199,19 @@ int main(int argc, char **argv) {
   omp_set_num_threads(options.numthreads);
 #endif
 
-  size_t BytesPerElement;
   median::cube_t<pixel_t> cube;
-
-  // Alloc memory space and read data from fits files with umap
-  cube.data = (pixel_t *)utility::umap_fits_file::PerFits_alloc_cube(
-      options.filename, &BytesPerElement, &cube.size_x, &cube.size_y, &cube.size_k);
-
-  if (cube.data == nullptr) {
-    std::cerr << "Failed to allocate memory for cube\n";
-    std::abort();
-  }
-
-  if (sizeof(pixel_t) != BytesPerElement) {
-    std::cerr << "Wrong pixel type" << std::endl;
-    std::abort();
-  }
-
-  {
-    const char *time_stamp_file_name = std::getenv("TIME_STAMP_FILE");
-    if (time_stamp_file_name != nullptr) {
-      std::ifstream ifs(time_stamp_file_name);
-      if (!ifs.is_open()) {
-        std::cerr << "Cannot open " << time_stamp_file_name << std::endl;
-        std::abort();
-      }
-      std::vector<double> time_stamps;
-      for (double time_stamp; ifs >> time_stamp;) {
-        time_stamps.emplace_back(time_stamp);
-      }
-      if (time_stamps.size() != cube.size_k) {
-        std::cerr << "#of lines in " << time_stamp_file_name << " is not the same as #of fits files" << std::endl;
-        std::abort();
-      }
-      cube.time_stamps = new double[time_stamps.size()];
-      std::memcpy(cube.time_stamps, time_stamps.data(), sizeof(double) * time_stamps.size());
-    } else {
-      // If a list of time stamps is not given, assume that the difference between two frames is 1.0
-      cube.time_stamps = new double[cube.size_k];
-      for (size_t i = 0; i < cube.size_k; ++i) cube.time_stamps[i] = i * 1.0;
-    }
-  }
-
-  std::size_t num_random_vector = default_num_random_vector;
-  {
-    const char *buf = std::getenv("NUM_VECTORS");
-    if (buf != nullptr) {
-      num_random_vector = std::stoll(buf);
-    }
-  }
+  map_fits(options.filename, cube);
+  set_timestamp(cube);
+  const std::size_t num_random_vector = get_num_vectors();
 
   auto result = shoot_vector(cube, num_random_vector);
   std::cout << "#of vectors = " << num_random_vector
             << "\nexecution time (sec) = " << result.first
             << "\nvectors/sec = " << static_cast<double>(num_random_vector) / result.first << std::endl;
-  print_top_median(cube, result.second);
 
-  delete[] cube.time_stamps;
+  print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
+
+  delete[] cube.timestamps;
   utility::umap_fits_file::PerFits_free_cube(cube.data);
 
   return 0;

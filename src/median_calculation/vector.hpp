@@ -25,8 +25,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include "utility.hpp"
 
-#define MEDIAN_CALCULATION_VERBOSE_VECTOR 0
-
 struct vector_t
 {
   double x_intercept;
@@ -93,7 +91,7 @@ class vector_iterator {
   // value_type val = *iterator
   value_type operator*() {
     assert(!is_out_of_range(current_pos)); // for sanity check
-    return median::reverse_byte_order(cube.data[get_index(current_pos)]);
+    return median::reverse_byte_order(cube.data[get_index_in_cube(current_pos)]);
   }
 
   // To support
@@ -108,6 +106,15 @@ class vector_iterator {
     vector_iterator iterator(cube, vector, 0); // 0 is a dummy value
     iterator.move_to_end();
     return iterator;
+  }
+
+  // Utility function returns the current coordinate (x, y, k)
+  std::tuple<ssize_t, ssize_t, ssize_t> coordinate() {
+    ssize_t pos_x;
+    ssize_t pos_y;
+    std::tie(pos_x, pos_y) = get_xy_coordinate(current_pos);
+
+    return std::make_tuple(pos_x, pos_y, current_pos);
   }
 
  private:
@@ -127,7 +134,7 @@ class vector_iterator {
         break;
       }
 
-      const value_type current_value = median::reverse_byte_order(cube.data[get_index(current_pos)]);
+      const value_type current_value = median::reverse_byte_order(cube.data[get_index_in_cube(current_pos)]);
       if (!median::is_nan(current_value)) {
         break; // Found next non-'nan' value
       }
@@ -142,24 +149,23 @@ class vector_iterator {
   }
 
   bool is_out_of_range(const size_t pos) {
-    return (get_index(pos) == -1);
+    return (get_index_in_cube(pos) == -1);
   }
 
   /// \brief Returns an index of a 3D coordinate.
-  ssize_t get_index(const size_t pos_k)
-  {
-    double time_offset = cube.time_stamps[pos_k] - cube.time_stamps[0];
+  ssize_t get_index_in_cube(const size_t pos_k) {
+    ssize_t pos_x;
+    ssize_t pos_y;
+    std::tie(pos_x, pos_y) = get_xy_coordinate(pos_k);
+
+    return median::get_index_in_cube(cube, pos_x, pos_y, pos_k);
+  }
+
+  std::pair<ssize_t, ssize_t> get_xy_coordinate(const size_t pos_k) {
+    double time_offset = cube.timestamps[pos_k] - cube.timestamps[0];
     const ssize_t pos_x = std::round(vector.x_slope * time_offset + vector.x_intercept);
     const ssize_t pos_y = std::round(vector.y_slope * time_offset + vector.y_intercept);
-
-#if MEDIAN_CALCULATION_VERBOSE_VECTOR
-    std::cout << "\nx: " << vector.x_slope << " * " << time_offset << " + " << vector.x_intercept << " = " <<  pos_x << std::endl;
-    std::cout << "y: " << vector.y_slope << " * " << time_offset << " + " << vector.y_intercept << " = " <<  pos_y << std::endl;
-    std::cout << "k: " << pos_x << std::endl;
-    std::cout << "index: " << median::get_index(cube, pos_x, pos_y, pos_k) << std::endl;
-#endif
-
-    return median::get_index(cube, pos_x, pos_y, pos_k);
+    return std::make_pair(pos_x, pos_y);
   }
 
   median::cube_t<pixel_type> cube;

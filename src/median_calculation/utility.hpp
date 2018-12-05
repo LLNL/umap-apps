@@ -43,7 +43,7 @@ struct cube_t {
   size_t size_y;
   size_t size_k;
   pixel_type *data;
-  double *time_stamps; // an array of the time stamp of each frame.
+  double *timestamps; // an array of the timestamp of each frame.
 };
 
 /// \brief Return frame size
@@ -60,14 +60,8 @@ size_t get_cube_size(const cube_t<pixel_type> &cube) {
 
 /// \brief Returns an index of a 3D coordinate
 template <typename pixel_type>
-ssize_t get_index(const cube_t<pixel_type> &cube, const size_t x, const size_t y, const size_t k) {
-#if MEDIAN_CALCULATION_COLUMN_MAJOR
-  const ssize_t frame_index = x + y * cube.size_x;
-#else
-  const ssize_t frame_index = x * cube.size_y + y;
-#endif
-
-  if (get_frame_size(cube) <= frame_index) {
+ssize_t get_index_in_cube(const cube_t<pixel_type> &cube, const size_t x, const size_t y, const size_t k) {
+  if (cube.size_x <= x || cube.size_y <= y) {
 #if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
     std::cerr << "Frame index is out-of-range: "
               << "(" << x << ", " << y << ") is out of "
@@ -76,9 +70,7 @@ ssize_t get_index(const cube_t<pixel_type> &cube, const size_t x, const size_t y
     return -1;
   }
 
-  const ssize_t cube_index = frame_index + k * get_frame_size(cube);
-
-  if (get_cube_size(cube) <= cube_index) {
+  if (cube.size_k <= k) {
 #if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
     std::cerr << "Cube index is out-of-range: "
               << "(" << x << ", " << y << ", " << k << ") is out of "
@@ -86,6 +78,14 @@ ssize_t get_index(const cube_t<pixel_type> &cube, const size_t x, const size_t y
 #endif
     return -1;
   }
+
+#if MEDIAN_CALCULATION_COLUMN_MAJOR
+  const ssize_t frame_index = x + y * cube.size_x;
+#else
+  const ssize_t frame_index = x * cube.size_y + y;
+#endif
+
+  const ssize_t cube_index = frame_index + k * get_frame_size(cube);
 
   return cube_index;
 }
