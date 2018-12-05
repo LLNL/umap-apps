@@ -26,7 +26,7 @@ namespace bfs {
 static const uint16_t k_infinite_level = std::numeric_limits<uint16_t>::max();
 
 /// \brief initialize variables to run BFS
-/// \param num_vertices The number of veritces
+/// \param num_vertices The number of vertices
 /// \param level A pointer of level array
 /// \param A pointer to an bitset for visited filter
 void init_bfs(const size_t num_vertices, uint16_t *const level, uint64_t *visited_filter) {

@@ -16,8 +16,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define SIMPLE_BFS_MMAP_UTILITY_HPP
 
 #include <sys/mman.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -92,7 +92,7 @@ void *map_file(void *const addr, const size_t length, const int protection, cons
 /// \param length The length of the map
 /// \param offset The offset in the file
 /// \return On Success, returns a pair of the file descriptor of the file and the starting address for the map.
-/// On error, retuns a pair of -1 and nullptr.
+/// On error, returns a pair of -1 and nullptr.
 std::pair<int, void *> map_file_read_mode(const std::string &file_name, void *const addr,
                                           const size_t length, const off_t offset,
                                           const int additional_flags = 0) {
@@ -120,7 +120,7 @@ std::pair<int, void *> map_file_read_mode(const std::string &file_name, void *co
 /// \param length The length of the map
 /// \param offset The offset in the file
 /// \return On Success, returns a pair of the file descriptor of the file and the starting address for the map.
-/// On error, retuns a pair of -1 and nullptr.
+/// On error, returns a pair of -1 and nullptr.
 std::pair<int, void *> map_file_write_mode(const std::string &file_name, void *const addr,
                                            const size_t length, const off_t offset,
                                            const int additional_flags = 0) {

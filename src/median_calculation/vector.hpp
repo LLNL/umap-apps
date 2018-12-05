@@ -33,19 +33,8 @@ struct vector_t
   double y_slope;
 };
 
-
-/// \brief Returns an index of a 3D coordinate. vector version
-template <typename pixel_type>
-inline ssize_t get_index(const median::cube_t<pixel_type>& cube, const vector_t& vec, const size_t epoch)
-{
-  return median::get_index(cube,
-                           std::round(vec.x_slope * epoch + vec.x_intercept),
-                           std::round(vec.y_slope * epoch + vec.y_intercept),
-                           epoch);
-}
-
-// Iterator class to use torben function with vector model
-// This class is a minimum implementation of an iterator to use the torben function
+// Iterator class to use the Torben function with vector model
+// This class is a minimum implementation of an iterator to use the Torben function
 template <typename pixel_type>
 class vector_iterator {
  public:
@@ -65,7 +54,7 @@ class vector_iterator {
         current_pos(_start_pos) {
     // Note that when 'end' iterator is given to copy-constructor and MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE is ON,
     // this code will trigger the out-of-range error message in get_index() function
-    // although passing an 'end' iterator to copy-constructor is an expected behaivor
+    // although passing an 'end' iterator to copy-constructor is an expected behavior
     if (is_out_of_range(current_pos)) {
       move_to_end();
       return;
@@ -101,8 +90,8 @@ class vector_iterator {
   // To support
   // value_type val = *iterator
   value_type operator*() {
-    assert(!is_out_of_range(current_pos)); // for sanitary check
-    return median::reverse_byte_order(cube.data[get_index(cube, vector, current_pos)]);
+    assert(!is_out_of_range(current_pos)); // for sanity check
+    return median::reverse_byte_order(cube.data[get_index_in_cube(current_pos)]);
   }
 
   // To support
@@ -117,6 +106,15 @@ class vector_iterator {
     vector_iterator iterator(cube, vector, 0); // 0 is a dummy value
     iterator.move_to_end();
     return iterator;
+  }
+
+  // Utility function returns the current coordinate (x, y, k)
+  std::tuple<ssize_t, ssize_t, ssize_t> coordinate() {
+    ssize_t pos_x;
+    ssize_t pos_y;
+    std::tie(pos_x, pos_y) = get_xy_coordinate(current_pos);
+
+    return std::make_tuple(pos_x, pos_y, current_pos);
   }
 
  private:
@@ -136,7 +134,7 @@ class vector_iterator {
         break;
       }
 
-      const value_type current_value = *(*this);
+      const value_type current_value = median::reverse_byte_order(cube.data[get_index_in_cube(current_pos)]);
       if (!median::is_nan(current_value)) {
         break; // Found next non-'nan' value
       }
@@ -151,7 +149,23 @@ class vector_iterator {
   }
 
   bool is_out_of_range(const size_t pos) {
-    return (get_index(cube, vector, pos) == -1);
+    return (get_index_in_cube(pos) == -1);
+  }
+
+  /// \brief Returns an index of a 3D coordinate.
+  ssize_t get_index_in_cube(const size_t pos_k) {
+    ssize_t pos_x;
+    ssize_t pos_y;
+    std::tie(pos_x, pos_y) = get_xy_coordinate(pos_k);
+
+    return median::get_index_in_cube(cube, pos_x, pos_y, pos_k);
+  }
+
+  std::pair<ssize_t, ssize_t> get_xy_coordinate(const size_t pos_k) {
+    double time_offset = cube.timestamps[pos_k] - cube.timestamps[0];
+    const ssize_t pos_x = std::round(vector.x_slope * time_offset + vector.x_intercept);
+    const ssize_t pos_y = std::round(vector.y_slope * time_offset + vector.y_intercept);
+    return std::make_pair(pos_x, pos_y);
   }
 
   median::cube_t<pixel_type> cube;

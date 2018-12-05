@@ -77,7 +77,7 @@ class rmat_edge_generator {
 
   class input_iterator_type : public std::iterator<std::input_iterator_tag,
                                                    edge_type,
-                                                   ptrdiff_t,
+                                                   std::ptrdiff_t,
                                                    const edge_type *,
                                                    const edge_type &> {
 

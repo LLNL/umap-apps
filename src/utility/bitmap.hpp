@@ -42,7 +42,7 @@ constexpr uint64_t bitmap_local_pos(const uint64_t pos)
 
 bool get_bit(const uint64_t* const bitmap, const uint64_t pos)
 {
-  return bitmap[bitmap_global_pos(pos)] & (0x1ULL << bitmap_local_pos(pos));
+  return static_cast<bool>(bitmap[bitmap_global_pos(pos)] & (0x1ULL << bitmap_local_pos(pos)));
 }
 
 void set_bit(uint64_t* const bitmap, const uint64_t pos)
