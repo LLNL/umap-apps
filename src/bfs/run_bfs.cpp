@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "bfs_kernel.hpp"
 #include "../utility/bitmap.hpp"
 #include "../utility/mmap.hpp"
+#include "../utility/time.hpp"
 
 void parse_options(int argc, char **argv,
                    size_t &num_vertices, size_t &num_edges,
@@ -118,8 +119,12 @@ int main(int argc, char **argv) {
 
   bfs::init_bfs(num_vertices, level.data(), visited_filter.data());
   find_bfs_root(num_vertices, index, level.data());
-  const uint16_t max_level = bfs::run_bfs(num_vertices, index, edges, level.data(), visited_filter.data());
 
+  const auto bfs_start_time = utility::elapsed_time_sec();
+  const uint16_t max_level = bfs::run_bfs(num_vertices, index, edges, level.data(), visited_filter.data());
+  const auto bfs_time = utility::elapsed_time_sec(bfs_start_time);
+  std::cout << "BFS took (s) " << bfs_time << std::endl;
+  
   count_level(num_vertices, max_level, level.data());
 
   return 0;
