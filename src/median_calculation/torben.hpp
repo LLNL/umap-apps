@@ -19,11 +19,13 @@ This version considerably modified
 This implementation also contains the modification proposed in https://github.com/sarnold/medians-1D/issues/8
 */
 
-#ifndef UMAP_TORBEN_HPP
-#define UMAP_TORBEN_HPP
+#ifndef UMAP_APPS_MEDIAN_CALCULATION_TORBEN_HPP
+#define UMAP_APPS_MEDIAN_CALCULATION_TORBEN_HPP
 
 #include <algorithm>
 #include <iterator>
+
+namespace median {
 
 /*
 STL-like Torben algorithm implementation for median calculation
@@ -48,49 +50,29 @@ own_iterator_class itr_begin;
 own_iterator_class itr_end;
 int median = torben(itr_begin, itr_end);
 
-
+// Example of a iterator class
 class vector_iterator {
  public:
-  // Required types to use some stl functions
   using value_type = pixel_type;
-  using difference_type = ssize_t;
-  using iterator_category = std::random_access_iterator_tag;
-  using pointer = value_type *;
-  using reference = value_type &;
-
-  // Constructor
-  vector_iterator(const median::cube_t<pixel_type> &_cube,
-                         const median::vector_t &_vector,
-                         const size_t _start_pos)
-      : cube(_cube),
-        vector(_vector),
-        current_pos(_start_pos) {}
 
   // Copy constructor
   vector_iterator(const vector_iterator&) = default;
 
+  bool operator==(const vector_iterator &);
   bool operator!=(const vector_iterator &);
-  difference_type operator-(const vector_iterator &);
+
   value_type operator*();
-  value_type operator[](size_t);
 
   // To support
   // ++iterator
-  value_type operator++() {
-    size_t tmp = current_pos;
-    ++current_pos;
-    return (*this)[tmp];
-  }
-
-  median::cube_t<pixel_type> cube;
-  median::vector_t vector;
-  size_t current_pos;
+  value_type operator++();
 };
  */
+
 template <typename iterator_type>
 typename iterator_type::value_type
 torben(iterator_type iterator_begin, iterator_type iterator_end) {
-  using value_type = typename std::iterator_traits<iterator_type>::value_type;
+  using value_type = typename iterator_type::value_type;
 
   if (iterator_begin == iterator_end)
     return 0;
@@ -150,4 +132,6 @@ torben(iterator_type iterator_begin, iterator_type iterator_end) {
   return (min + max) / 2.0;
 }
 
-#endif //UMAP_TORBEN_HPP
+} // namespace median
+
+#endif //UMAP_APPS_MEDIAN_CALCULATION_TORBEN_HPP
