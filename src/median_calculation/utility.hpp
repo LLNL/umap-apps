@@ -19,76 +19,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 /// k: time dimension
 /// A cube is a set of 'k' frames
 
-#ifndef MEDIAN_CALCULATION_COMMON_HPP
-#define MEDIAN_CALCULATION_COMMON_HPP
+#ifndef UMAP_APPS_MEDIAN_CALCULATION_UTILITY_HPP
+#define UMAP_APPS_MEDIAN_CALCULATION_UTILITY_HPP
 
 #include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <string>
 #include <cmath>
-#include <cfenv>
 #include <cassert>
 
-#define MEDIAN_CALCULATION_COLUMN_MAJOR 1
-#define MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE 0
-
 namespace median {
-
-template <typename _pixel_type>
-struct cube_t {
-  using pixel_type = _pixel_type;
-
-  size_t size_x;
-  size_t size_y;
-  size_t size_k;
-  pixel_type *data;
-  double *timestamps; // an array of the timestamp of each frame.
-};
-
-/// \brief Return frame size
-template <typename pixel_type>
-size_t get_frame_size(const cube_t<pixel_type> &cube) {
-  return cube.size_x * cube.size_y;
-}
-
-/// \brief Return cube size
-template <typename pixel_type>
-size_t get_cube_size(const cube_t<pixel_type> &cube) {
-  return cube.size_x * cube.size_y * cube.size_k;
-}
-
-/// \brief Returns an index of a 3D coordinate
-template <typename pixel_type>
-ssize_t get_index_in_cube(const cube_t<pixel_type> &cube, const ssize_t x, const ssize_t y, const ssize_t k) {
-  if (x < 0 || cube.size_x <= x || y < 0 || cube.size_y <= y) {
-#if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
-    std::cerr << "Frame index is out-of-range: "
-              << "(" << x << ", " << y << ") is out of "
-              << "(" << cube.size_x << ", " << cube.size_y << ")" << std::endl;
-#endif
-    return -1;
-  }
-
-  if (k < 0 || cube.size_k <= k) {
-#if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
-    std::cerr << "Cube index is out-of-range: "
-              << "(" << x << ", " << y << ", " << k << ") is out of "
-              << "(" << cube.size_x << ", " << cube.size_y << ", " << cube.size_k << ")" << std::endl;
-#endif
-    return -1;
-  }
-
-#if MEDIAN_CALCULATION_COLUMN_MAJOR
-  const ssize_t frame_index = x + y * cube.size_x;
-#else
-  const ssize_t frame_index = x * cube.size_y + y;
-#endif
-
-  const ssize_t cube_index = frame_index + k * get_frame_size(cube);
-
-  return cube_index;
-}
 
 /// \brief Reverses byte order
 /// \tparam T Type of value; currently only 4 Byte types are supported
@@ -96,10 +34,10 @@ ssize_t get_index_in_cube(const cube_t<pixel_type> &cube, const ssize_t x, const
 /// \return Given value being reversed byte order
 template <typename T>
 T reverse_byte_order(const T x) {
-  static_assert(sizeof(T) == 4, "T is not a 4 byte of type");
+  static_assert(sizeof(T) == 4, "T is not a 4 byte type");
   T reversed_x;
-  auto *const p1 = reinterpret_cast<const char *>(&x);
-  auto *const p2 = reinterpret_cast<char *>(&reversed_x);
+  const char *const p1 = reinterpret_cast<const char *>(&x);
+  char *const p2 = reinterpret_cast<char *>(&reversed_x);
   p2[0] = p1[3];
   p2[1] = p1[2];
   p2[2] = p1[1];
@@ -115,4 +53,4 @@ bool is_nan(const pixel_type value) {
 
 } // namespace median
 
-#endif //MEDIAN_CALCULATION_COMMON_HPP
+#endif //UMAP_APPS_MEDIAN_CALCULATION_UTILITY_HPP

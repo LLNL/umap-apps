@@ -28,44 +28,35 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include "../utility/commandline.hpp"
 #include "../utility/umap_fits_file.hpp"
+#include "../utility/time.hpp"
 #include "torben.hpp"
 #include "utility.hpp"
 #include "vector.hpp"
-#include "../utility/time.hpp"
+#include "cube.hpp"
+#include "beta_distribution.hpp"
 
-using pixel_t = float;
+using namespace median;
+
+using pixel_type = float;
 constexpr size_t default_num_random_vector = 100000;
 
-class beta_distribution {
- public:
-  beta_distribution(double a, double b)
-      : m_x_gamma(a, 1.0),
-        m_y_gamma(b, 1.0) {}
-
-  template <typename rnd_engine>
-  double operator()(rnd_engine &engine) {
-    double x = m_x_gamma(engine);
-    double y = m_y_gamma(engine);
-    return x / (x + y);
-  }
-
- private:
-  std::gamma_distribution<> m_x_gamma;
-  std::gamma_distribution<> m_y_gamma;
-};
-
-void map_fits(const std::string& filename, median::cube_t<pixel_t> &cube) {
+void map_fits(const std::string &filename,
+              size_t *size_x,
+              size_t *size_y,
+              size_t *size_k,
+              pixel_type **image_data) {
   size_t byte_per_element;
   // Map FITS files using UMap
-  cube.data = (pixel_t *)utility::umap_fits_file::PerFits_alloc_cube(filename, &byte_per_element, &cube.size_x, &cube.size_y, &cube.size_k);
+  *image_data = (pixel_type *)utility::umap_fits_file::PerFits_alloc_cube(filename, &byte_per_element,
+                                                                          size_x, size_y, size_k);
 
-  if (cube.data == nullptr) {
+  if (*image_data == nullptr) {
     std::cerr << "Failed to allocate memory for cube" << std::endl;
     std::abort();
   }
 
-  if (sizeof(pixel_t) != byte_per_element) {
-    std::cerr << "Wrong pixel type" << std::endl;
+  if (sizeof(pixel_type) != byte_per_element) {
+    std::cerr << "Pixel type is not float" << std::endl;
     std::abort();
   }
 }
@@ -79,7 +70,9 @@ std::size_t get_num_vectors() {
   return num_random_vector;
 }
 
-void set_timestamp(median::cube_t<pixel_t> &cube) {
+std::vector<double> read_timestamp(const size_t size_k) {
+  std::vector<double> timestamp_list;
+
   const char *timestamp_file_name = std::getenv("TIMESTAMP_FILE");
   if (timestamp_file_name != nullptr) {
     std::ifstream ifs(timestamp_file_name);
@@ -87,27 +80,26 @@ void set_timestamp(median::cube_t<pixel_t> &cube) {
       std::cerr << "Cannot open " << timestamp_file_name << std::endl;
       std::abort();
     }
-    std::vector<double> timestamps;
     for (double timestamp; ifs >> timestamp;) {
-      timestamps.emplace_back(timestamp);
+      timestamp_list.emplace_back(timestamp);
     }
-    if (timestamps.size() != cube.size_k) {
+    if (timestamp_list.size() != size_k) {
       std::cerr << "#of lines in " << timestamp_file_name << " is not the same as #of fits files" << std::endl;
       std::abort();
     }
-    cube.timestamps = new double[timestamps.size()];
-    std::memcpy(cube.timestamps, timestamps.data(), sizeof(double) * timestamps.size());
   } else {
     // If a list of timestamps is not given, assume that the difference between two frames is 1.0
-    cube.timestamps = new double[cube.size_k];
-    for (size_t i = 0; i < cube.size_k; ++i) cube.timestamps[i] = i * 1.0;
+    timestamp_list.resize(size_k);
+    for (size_t i = 0; i < size_k; ++i) timestamp_list[i] = i * 1.0;
   }
+
+  return timestamp_list;
 }
 
-std::pair<double, std::vector<std::pair<pixel_t, vector_t>>>
-shoot_vector(const median::cube_t<pixel_t> &cube, const std::size_t num_random_vector) {
+std::pair<double, std::vector<std::pair<pixel_type, vector_xy>>>
+shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
-  std::vector<std::pair<pixel_t, vector_t>> result(num_random_vector);
+  std::vector<std::pair<pixel_type, vector_xy>> result(num_random_vector);
 
   double total_execution_time = 0.0;
 
@@ -120,8 +112,8 @@ shoot_vector(const median::cube_t<pixel_t> &cube, const std::size_t num_random_v
 #else
     std::mt19937 rnd_engine(123);
 #endif
-    std::uniform_int_distribution<int> x_start_dist(0, cube.size_x - 1);
-    std::uniform_int_distribution<int> y_start_dist(0, cube.size_y - 1);
+    std::uniform_int_distribution<int> x_start_dist(0, std::get<0>(cube.size()) - 1);
+    std::uniform_int_distribution<int> y_start_dist(0, std::get<1>(cube.size()) - 1);
     beta_distribution x_beta_dist(3, 2);
     beta_distribution y_beta_dist(3, 2);
     std::uniform_int_distribution<int> plus_or_minus(0, 1);
@@ -131,20 +123,20 @@ shoot_vector(const median::cube_t<pixel_t> &cube, const std::size_t num_random_v
 #pragma omp for
 #endif
     for (int i = 0; i < num_random_vector; ++i) {
-      double x_intercept = x_start_dist(rnd_engine);
-      double y_intercept = y_start_dist(rnd_engine);
+      const double x_intercept = x_start_dist(rnd_engine);
+      const double y_intercept = y_start_dist(rnd_engine);
 
       // Changed to the const value to 2 from 25 so that vectors won't access
       // out of range of the cube with a large number of frames
       //
       // This is a temporary measures
-      double x_slope = x_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
-      double y_slope = y_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
+      const double x_slope = x_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
+      const double y_slope = y_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
 
-      vector_t vector{x_intercept, x_slope, y_intercept, y_slope};
+      vector_xy vector{x_slope, x_intercept, y_slope, y_intercept};
 
-      vector_iterator<pixel_t> begin(cube, vector, 0);
-      vector_iterator<pixel_t> end(vector_iterator<pixel_t>::create_end(cube, vector));
+      cube_iterator_with_vector<pixel_type> begin(cube, vector, 0.0);
+      cube_iterator_with_vector<pixel_type> end(cube, vector);
 
       // median calculation using Torben algorithm
       const auto start = utility::elapsed_time_sec();
@@ -157,35 +149,39 @@ shoot_vector(const median::cube_t<pixel_t> &cube, const std::size_t num_random_v
   return std::make_pair(total_execution_time, result);
 }
 
-void print_top_median(const median::cube_t<pixel_t> &cube,
+void print_top_median(const cube<pixel_type> &cube,
                       const size_t num_top,
-                      std::vector<std::pair<pixel_t, vector_t>> &result) {
+                      std::vector<std::pair<pixel_type, vector_xy>> &result) {
+
   // Sort the results by the descending order of median value
-  std::partial_sort(result.begin(),
-                    result.begin() + num_top, // get only top 10 elements
-                    result.end(),
-                    [](const std::pair<pixel_t, vector_t> &lhd,
-                       const std::pair<pixel_t, vector_t> &rhd) {
-                      return (lhd.first > rhd.first);
-                    });
+  std::sort(result.begin(), result.end(),
+            [](const std::pair<pixel_type, vector_xy> &lhd,
+               const std::pair<pixel_type, vector_xy> &rhd) {
+              return (lhd.first > rhd.first);
+            });
 
   // Print out the top 'num_top' median values and corresponding pixel values
   std::cout << "Top " << num_top << " median and pixel values (skip NaN value)" << std::endl;
   for (size_t i = 0; i < num_top; ++i) {
-    const pixel_t median = result[i].first;
-    const vector_t vector = result[i].second;
+    const pixel_type median = result[i].first;
+    const vector_xy vector = result[i].second;
+
     std::cout << "[" << i << "]" << std::endl;
     std::cout << "Median: " << median << std::endl;
     std::cout << "Vector (x-slope, x-intercept, y-slope, y-intercept): "
-              << vector.x_slope << ", " << vector.x_intercept << ", " << vector.y_slope << ", " << vector.y_intercept << std::endl;
+              << vector.x_slope << ", " << vector.x_intercept
+              << ", " << vector.y_slope << ", " << vector.y_intercept << std::endl;
 
     std::cout << "Values (x, y, k):" << std::endl;
-    vector_iterator<pixel_t> iterator(cube, vector, 0);
-    vector_iterator<pixel_t> end(vector_iterator<pixel_t>::create_end(cube, vector));
-    for (; iterator != end; ++iterator) {
-      ssize_t x, y, k;
-      std::tie(x, y, k) = iterator.coordinate();
-      std::cout << " [ " << x << ", " << y << ", " << k << " ] = " << *iterator << std::endl;
+    for (size_t k = 0; k < std::get<2>(cube.size()); ++k) {
+      const double time_offset = cube.timestamp(k) - cube.timestamp(0);
+      const ssize_t x = vector.position(time_offset).first;
+      const ssize_t y = vector.position(time_offset).second;
+
+      std::cout << " [ " << x << ", " << y << ", " << k << " ] = ";
+
+      if (cube.out_of_range(x, y, k)) std::cout << "OOR" << std::endl; // Out of Range
+      else std::cout << cube.get_pixel_value(x, y, k) << std::endl;
     }
     std::cout << std::endl;
   }
@@ -199,20 +195,22 @@ int main(int argc, char **argv) {
   omp_set_num_threads(options.numthreads);
 #endif
 
-  median::cube_t<pixel_t> cube;
-  map_fits(options.filename, cube);
-  set_timestamp(cube);
+  size_t size_x; size_t size_y; size_t size_k;
+  pixel_type *image_data;
+  map_fits(options.filename, &size_x, &size_y, &size_k, &image_data);
+  cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k));
+
   const std::size_t num_random_vector = get_num_vectors();
 
   auto result = shoot_vector(cube, num_random_vector);
+
   std::cout << "#of vectors = " << num_random_vector
             << "\nexecution time (sec) = " << result.first
             << "\nvectors/sec = " << static_cast<double>(num_random_vector) / result.first << std::endl;
 
   print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
 
-  delete[] cube.timestamps;
-  utility::umap_fits_file::PerFits_free_cube(cube.data);
+  utility::umap_fits_file::PerFits_free_cube(image_data);
 
   return 0;
 }

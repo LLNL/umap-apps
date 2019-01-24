@@ -40,3 +40,5 @@ else()
     "Skipping median_calculation, (missing CFITS_LIBRARY_PATH/CFITS_INCLUDE_PATH)"
   )
 endif()
+
+add_subdirectory(debug_program)
