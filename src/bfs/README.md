@@ -55,3 +55,4 @@ For example, the first line is a comment; you have to delete the line before run
 * You can get #of vertices and #of edges by running ingest_edge_list.
 * This is a multi-threads (OpenMP) program.
 You can control the number of threads using the environment variable OMP_NUM_THREADS.
+You can also control OpenMP's schedule algorithm of the main BFS loop using OMP_SCHEDULE environment variable.
