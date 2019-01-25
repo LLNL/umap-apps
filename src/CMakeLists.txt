@@ -1,6 +1,4 @@
 add_subdirectory(median_calculation)
-add_subdirectory(churn)
-add_subdirectory(pfbenchmark)
 add_subdirectory(umapcpu)
 add_subdirectory(umapsort)
 add_subdirectory(bfs)
