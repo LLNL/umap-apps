@@ -60,7 +60,7 @@ uint16_t run_bfs(const size_t num_vertices,
     /// BFS loop for a single level
     /// We assume that the cost of generating threads at every level is negligible
 #ifdef _OPENMP
-#pragma omp parallel for schedule (dynamic, 1048576)
+#pragma omp parallel for schedule (runtime)
 #endif
     for (uint64_t src = 0; src < num_vertices; ++src) { /// BFS loop for each level
       if (level[src] != current_level) continue;
