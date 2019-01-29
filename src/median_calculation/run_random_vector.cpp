@@ -96,6 +96,32 @@ std::vector<double> read_timestamp(const size_t size_k) {
   return timestamp_list;
 }
 
+std::vector<double> read_exposuretime(const size_t size_k) {
+  std::vector<double> exposuretime_list;
+
+  const char *exposuretime_file_name = std::getenv("EXPOSURETIME_FILE");
+  if (exposuretime_file_name != nullptr) {
+    std::ifstream ifs(exposuretime_file_name);
+    if (!ifs.is_open()) {
+      std::cerr << "Cannot open " << exposuretime_file_name << std::endl;
+      std::abort();
+    }
+    for (double exposuretime; ifs >> exposuretime;) {
+      exposuretime_list.emplace_back(exposuretime);
+    }
+    if (exposuretime_list.size() != size_k) {
+      std::cerr << "#of lines in " << exposuretime_file_name << " is not the same as #of fits files" << std::endl;
+      std::abort();
+    }
+  } else {
+    // If a list of exposure times is not given, assume that each exposure time is 40 s
+    exposuretime_list.resize(size_k);
+    for (size_t i = 0; i < size_k; ++i) exposuretime_list[i] = 40;
+  }
+
+  return timestamp_list;
+}
+
 std::pair<double, std::vector<std::pair<pixel_type, vector_xy>>>
 shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
@@ -198,7 +224,7 @@ int main(int argc, char **argv) {
   size_t size_x; size_t size_y; size_t size_k;
   pixel_type *image_data;
   map_fits(options.filename, &size_x, &size_y, &size_k, &image_data);
-  cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k));
+  cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k), read_exposuretime(size_k));
 
   const std::size_t num_random_vector = get_num_vectors();
 
