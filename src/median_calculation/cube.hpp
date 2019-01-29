@@ -51,6 +51,8 @@ class cube {
         m_image_data(image_data),
         m_timestamp_list(std::move(timestamp_list)) {
     assert(m_size_k <= m_timestamp_list.size());
+        m_exposuretime_list(std::move(exposuretime_list)) {
+    assert(m_size_k <= m_exposuretime_list.size());
   }
 
   ~cube() = default; // Default destructor
@@ -97,6 +99,11 @@ class cube {
   double timestamp(const size_t k) const {
     assert(k < m_timestamp_list.size());
     return m_timestamp_list[k];
+  }
+  
+  double exposuretime(const size_t k) const {
+    assert(k < m_exposuretime_list.size());
+    return m_exposuretime_list[k];
   }
 
  private:
@@ -147,6 +154,7 @@ class cube {
   pixel_type *const m_image_data;
 
   std::vector<double> m_timestamp_list; // an array of the timestamp of each frame.
+  std::vector<double> m_exposuretime_list; // an array of the exposure time of each frame.
 };
 
 } // namespace median
