@@ -103,13 +103,7 @@ class cube_iterator_with_vector {
   // To support
   // value_type val = *iterator
   value_type operator*() const {
-    const auto xy = current_xy_position();
-    assert(!m_cube.out_of_range(xy.first, xy.second, m_current_k_pos));
-
-    const pixel_type value = m_cube.get_pixel_value(xy.first, xy.second, m_current_k_pos);
-    assert(!is_nan(value));
-
-    return value;
+    return get_pixel_value_with_window();
   }
 
   // To support
@@ -127,6 +121,37 @@ class cube_iterator_with_vector {
     const double time_offset = m_cube.timestamp(m_current_k_pos) - m_cube.timestamp(0);
     return m_vector.position(time_offset);
   }
+  
+  pixel_type get_pixel_value_with_streak(const size_t psf_width) const {
+    const auto xy = current_xy_position();
+    ssize_t x_pos = xy.first;
+    ssize_t y_pos = xy.second;
+
+    double exp_time = 40;
+    ///when exposure time is written into cube info:
+    ///double exp_time = cube.exp_times[current_pos];
+
+    size_t streak_length = sqrt(pow((exp_time / m_vector.x_slope), 2) + pow((exp_time / m_vector.y_slope), 2));
+    double phi = atan(m_vector.x_slope / m_vector.y_slope); ///simplified from (streak_length_y/streak_length_x)
+
+    pixel_type result = 0;
+
+    for (size_t x_offset = 0; x_offset <= ceil(streak_length + psf_width); ++x_offset) {
+      for (size_t y_offset = 0; y_offset <= ceil(psf_width); ++y_offset) {
+        if (m_cube.out_of_range(x_pos + x_offset, y_pos + y_offset, m_current_k_pos)) continue;
+
+        size_t x_pixel = std::round((x_pos - streak_length/2 - psf_width/2) + cos(phi)*x_offset - sin(phi)*y_offset);
+        size_t y_pixel = std::round((y_pos - psf_width/2) + sin(phi)*x_offset + cos(phi)*y_offset);
+
+        const pixel_type value = m_cube.get_pixel_value(x_pixel, y_pixel, m_current_k_pos);
+        if (is_nan(value)) continue;
+
+        result += value;
+    }
+  }
+
+  return (double)result;
+}
 
   // Find the next non-NaN value
   void move_to_next_valid_pixel() {
@@ -155,34 +180,3 @@ class cube_iterator_with_vector {
 } // namespace median
 
 #endif //UMAP_APPS_MEDIAN_CALCULATION_VECTOR_HPP
-
-// -------------------------------------------------------------------------------- //
-// Example of a function that returns pixel value by a window.
-// To use this function, just call it in '*' operator
-// value_type operator*() const {
-//   return get_pixel_value_with_window()
-// }
-// -------------------------------------------------------------------------------- //
-/*
-pixel_type get_pixel_value_with_window(const size_t window_size_x, const size_t window_size_y) const {
-  const auto xy = current_xy_position();
-  ssize_t x = xy.first - window_size_x / 2;
-  ssize_t y = xy.second - window_size_y / 2;
-
-  pixel_type result = 0;
-  size_t num_valid_values = 0;
-  for (size_t offset_y = 0; offset_y < window_size_y; ++offset_y) {
-    for (size_t offset_x = 0; offset_x < window_size_x; ++offset_x) {
-      if (m_cube.out_of_range(x + offset_x, y + offset_y, m_current_k_pos)) continue;
-
-      const pixel_type value = m_cube.get_pixel_value(x + offset_x, y + offset_y, m_current_k_pos);
-      if (is_nan(value)) continue;
-
-      result += value;
-      ++num_valid_values;
-    }
-  }
-
-  return (double)result / num_valid_values;
-}
-*/
