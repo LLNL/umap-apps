@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <math.h>
 
 #include "utility.hpp"
 #include "cube.hpp"
@@ -103,7 +104,7 @@ class cube_iterator_with_vector {
   // To support
   // value_type val = *iterator
   value_type operator*() const {
-    return get_pixel_value_with_window();
+    return get_pixel_value_with_streak();
   }
 
   // To support
@@ -136,17 +137,27 @@ class cube_iterator_with_vector {
 
     pixel_type result = 0;
 
-    for (size_t x_offset = 0; x_offset <= ceil(streak_length + psf_width); ++x_offset) {
-      for (size_t y_offset = 0; y_offset <= ceil(psf_width); ++y_offset) {
+    for (size_t x_offset = floor(-streak_length/2 -psf_width); x_offset <= ceil(streak_length/2 + psf_width); ++x_offset) {
+      for (size_t y_offset = floor(-psf_width); y_offset <= ceil(psf_width); ++y_offset) {
         if (m_cube.out_of_range(x_pos + x_offset, y_pos + y_offset, m_current_k_pos)) continue;
 
-        size_t x_pixel = std::round((x_pos - streak_length/2 - psf_width/2) + cos(phi)*x_offset - sin(phi)*y_offset);
-        size_t y_pixel = std::round((y_pos - psf_width/2) + sin(phi)*x_offset + cos(phi)*y_offset);
+        size_t x_pixel = std::round(x_pos + cos(phi)*x_offset - sin(phi)*y_offset);
+        size_t y_pixel = std::round(y_pos + sin(phi)*x_offset + cos(phi)*y_offset);
+        
+        ///Following code is for a weighted sum using convolution of gaussian with streak
+        pixel_type psfwidth_sq = psf_width*psf_width; //need to figure out converting types here
+        pixel_type coef = (1/(2*streak_length))*(2*psfwidth_sq*M_PI/sqrt(2*M_PI*psfwidth_sq));
+        pixel_type xarg_denom = 2*sqrt(2*psfwidth_sq);
+        pixel_type xarg1 = (streak_length - 2*x_offset)/xarg_denom;
+        pixel_type xarg1 = (streak_length + 2*x_offset)/xarg_denom;
+        pixel_type xterm = erf(xarg1) + erf(xarg2);
+        pixel_type yterm = exp(-0.5 *y_offset*y_offset/psfwidth_sq);
+        pixel_type weight = coef*xterm*yterm;
 
         const pixel_type value = m_cube.get_pixel_value(x_pixel, y_pixel, m_current_k_pos);
         if (is_nan(value)) continue;
 
-        result += value;
+        result += value*weight;
     }
   }
 
