@@ -18,6 +18,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <iostream>
 #include <limits>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include "../utility/bitmap.hpp"
 #include "../utility/mmap.hpp"
 
@@ -36,6 +40,24 @@ void init_bfs(const size_t num_vertices, uint16_t *const level, uint64_t *visite
     visited_filter[i] = 0;
 }
 
+/// \brief Print out the current omp configuration
+void print_omp_configuration() {
+#ifdef _OPENMP
+#pragma omp parallel
+  {
+    if (::omp_get_thread_num() == 0)
+      std::cout << "Run with " << ::omp_get_num_threads() << " threads" << std::endl;
+  }
+  omp_sched_t kind;
+  int chunk_size;
+  ::omp_get_schedule(&kind, &chunk_size);
+  std::cout << "kind " << kind
+            << ", chunk_size " << chunk_size << std::endl;
+#else
+  std::cout << "Run with a single thread" << std::endl;
+#endif
+}
+
 /// \brief BFS kernel.
 /// This kernel runs with OpenMP.
 /// In order to simplify the implementation of this kernel,
@@ -51,6 +73,8 @@ uint16_t run_bfs(const size_t num_vertices,
                  const uint64_t *const edges,
                  uint16_t *const level,
                  uint64_t *visited_filter) {
+
+  print_omp_configuration();
 
   uint16_t current_level = 0;
   bool visited_new_vertex = false;

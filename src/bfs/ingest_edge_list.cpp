@@ -67,7 +67,14 @@ void ingest_edges(void *const map_raw_address, const uint64_t max_id, const std:
 #pragma omp parallel for
 #endif
   for (size_t i = 0; i < edge_list_file_names.size(); ++i) {
-    std::cout << "Reading " << edge_list_file_names[i] << std::endl;
+
+#ifdef _OPENMP
+#pragma omp critical
+#endif
+    {
+      std::cout << "Reading " << edge_list_file_names[i] << std::endl;
+    }
+
     std::ifstream edge_stream(edge_list_file_names[i]);
     if (!edge_stream.is_open()) {
       std::cerr << "Can not open " << edge_list_file_names[i] << std::endl;
@@ -104,7 +111,14 @@ void ingest_edges(void *const map_raw_address, const uint64_t max_id, const std:
 #pragma omp parallel for
 #endif
   for (size_t i = 0; i < edge_list_file_names.size(); ++i) {
-    std::cout << "Reading " << edge_list_file_names[i] << std::endl;
+
+#ifdef _OPENMP
+#pragma omp critical
+#endif
+    {
+      std::cout << "Reading " << edge_list_file_names[i] << std::endl;
+    }
+
     std::ifstream edge_stream(edge_list_file_names[i]);
 
     uint64_t source, target;
