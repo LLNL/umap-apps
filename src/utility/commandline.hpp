@@ -12,8 +12,8 @@
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#ifndef _COMMANDLING_HPP
-#define _COMMANDLING_HPP
+#ifndef _COMMANDLINE_HPP
+#define _COMMANDLINE_HPP
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <iostream>     // cout/cerr
+#include <list>
 #include <unistd.h>     // getopt()
 #include <getopt.h>     // duh...
 #include "umap/umap.h"
@@ -50,7 +51,10 @@ const uint64_t BUFFERSIZE = 16;
 
 using namespace std;
 
-static void usage(char* pname)
+static std::list< void(*)(char*) > umt_usageprinters;
+
+/* If this function returns a non-zero condition, then print the usage function and quit */
+static void default_usage(char* pname)
 {
   cerr
   << "Usage: " << pname << " [--initonly] [--noinit] [--directio]"
@@ -68,11 +72,11 @@ static void usage(char* pname)
   << " -f [file name]         - backing file name.  Or file basename if multiple files\n"
   << " -d [directory name]    - backing directory name.  Or dir basename if multiple dirs\n"
   << " -P # page size         - default: " << umap_cfg_get_pagesize() << endl;
-  exit(1);
 }
 
-void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
+static int default_getoptions(void* optstruct, int argc, char *argv[])
 {
+  utility::umt_optstruct_t* testops = (utility::umt_optstruct_t*) optstruct;
   int c;
   char *pname = argv[0];
 
@@ -108,34 +112,32 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
       case 0:
         if (long_options[option_index].flag != 0)
           break;
-
-        usage(pname);
-        break;
+        return -1;
 
       case 'P':
         if ((testops->pagesize = strtol(optarg, nullptr, 0)) > 0) {
           if (umap_cfg_set_pagesize(testops->pagesize) < 0) {
-            goto R0;
+            return -1;
           }
           break;
         }
-        goto R0;
+        return -1;
       case 'p':
         if ((testops->numpages = strtoull(optarg, nullptr, 0)) > 0)
           break;
-        goto R0;
+        return -1;
       case 't':
         if ((testops->numthreads = strtoull(optarg, nullptr, 0)) > 0)
           break;
-        else goto R0;
+        else return -1;
       case 'b':
         if ((testops->bufsize = strtoull(optarg, nullptr, 0)) > 0)
           break;
-        else goto R0;
+        else return -1;
       case 'u':
         if ((testops->uffdthreads = strtoull(optarg, nullptr, 0)) > 0)
           break;
-        else goto R0;
+        else return -1;
       case 'a':
         testops->pages_to_access = strtoull(optarg, nullptr, 0);
         break;
@@ -145,23 +147,12 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
       case 'f':
         testops->filename = optarg;
         break;
-      default:
-      R0:
-        usage(pname);
     }
   }
 
   if (testops->numpages < testops->pages_to_access) {
     cerr << "Invalid -a argument " << testops->pages_to_access << "\n";
-    usage(pname);
-  }
-
-  if (optind < argc) {
-    cerr << "Unknown Arguments: ";
-    while (optind < argc)
-      cerr << "\"" << argv[optind++] << "\" ";
-    cerr << endl;
-    usage(pname);
+    return -1;
   }
 
   /*
@@ -177,9 +168,34 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
   umap_cfg_set_bufsize(testops->bufsize);
 }
 
+static int umt_opts_argc;
+static char** umt_opts_argv;
+
+void umt_handle_options(void* optstruct, int(*handler)(void*, int, char*[]), void(*usage)(char*) );
+
+void umt_getoptions(utility::umt_optstruct_t* testopts, int argc, char *argv[])
+{
+  umt_opts_argc = argc;
+  umt_opts_argv = argv;
+  umt_usageprinters.push_front(&default_usage);
+  umt_handle_options((void*) testopts, &default_getoptions, (void(*)(char*)) 0);
+}
+
+void umt_handle_options(void* optstruct, int(*handler)(void*, int, char*[]), void(*usage)(char*) )
+{
+  if (usage) {
+    umt_usageprinters.push_back(usage);
+  }
+  if (handler(optstruct, umt_opts_argc, umt_opts_argv)) {
+    for (auto it = umt_usageprinters.begin(); it != umt_usageprinters.end(); it++) {
+      (*it)(umt_opts_argv[0]);
+    }
+  }
+}
+
 long umt_getpagesize(void)
 {
   return umap_cfg_get_pagesize();
 }
 }
-#endif // _COMMANDLING_HPP
+#endif // _COMMANDLINE_HPP
