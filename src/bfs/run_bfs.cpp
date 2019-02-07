@@ -20,47 +20,54 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <fstream>
 
 #include "bfs_kernel.hpp"
+#include "../utility/commandline.hpp"
 #include "../utility/bitmap.hpp"
-#include "../utility/mmap.hpp"
+#include "../utility/umap_file.hpp"
 #include "../utility/time.hpp"
 
-void parse_options(int argc, char **argv,
-                   size_t &num_vertices, size_t &num_edges,
-                   std::string &graph_file_name) {
-  num_vertices = 0;
-  num_edges = 0;
-  graph_file_name = "";
+void bfs_usage(char* pname)
+{
+  std::cerr << "BFS usage: " << pname << " -n <num vertices> -m <num edges>" << std::endl;
+}
+
+struct bfs_opts {
+  size_t num_vertices;
+  size_t num_edges;
+};
+
+int parse_options(void* optstruct, int argc, char **argv)
+{
+  bfs_opts* opts = (bfs_opts*) optstruct;
 
   int c;
   while ((c = getopt(argc, argv, "n:m:g:h")) != -1) {
     switch (c) {
       case 'n': /// Required
-        num_vertices = std::stoull(optarg);
+        opts->num_vertices = std::stoull(optarg);
         break;
 
       case 'm': /// Required
-        num_edges = std::stoull(optarg);
-        break;
-
-      case 'g': /// Required
-        graph_file_name = optarg;
+        opts->num_edges = std::stoull(optarg);
         break;
 
       case 'h':
-        // usage();
+        return -1;
         break;
+
+      default:
+        return -1;
     }
   }
 }
 
 std::pair<uint64_t *, uint64_t *>
-map_graph(const size_t num_vertices, const size_t num_edges, const std::string &graph_file_name) {
+map_graph(const size_t num_vertices, const size_t num_edges, const std::string &graph_file_name, bool usemmap) {
   const size_t graph_size = (num_vertices + 1 + num_edges) * sizeof(uint64_t);
 
   int fd = -1;
   void *map_raw_address = nullptr;
-  std::tie(fd, map_raw_address) = utility::map_file_read_mode(graph_file_name, nullptr, graph_size, 0);
-  if (fd == -1 || map_raw_address == nullptr) {
+  map_raw_address = utility::map_in_file(graph_file_name, false, true, false, graph_size);
+  if (map_raw_address == nullptr) {
     std::cerr << "Failed to map the graph" << std::endl;
     std::abort();
   }
@@ -104,28 +111,27 @@ void count_level(const size_t num_vertices, const uint16_t max_level, const uint
 }
 
 int main(int argc, char **argv) {
-  size_t num_vertices;
-  size_t num_edges;
-  std::string graph_file_name;
-
-  parse_options(argc, argv, num_vertices, num_edges, graph_file_name);
+  utility::umt_optstruct_t global_opts;
+  bfs_opts test_opts;
+  utility::umt_getoptions(&global_opts, argc, argv);
+  utility::umt_handle_options(&test_opts, &parse_options, &bfs_usage);
 
   const uint64_t *index = nullptr;
   const uint64_t *edges = nullptr;
-  std::tie(index, edges) = map_graph(num_vertices, num_edges, graph_file_name);
+  std::tie(index, edges) = map_graph(test_opts.num_vertices, test_opts.num_edges, std::string(global_opts.filename), global_opts.usemmap);
 
-  std::vector<uint16_t> level(num_vertices); // Array to store each vertex's level (a distance from the source vertex)
-  std::vector<uint64_t> visited_filter(utility::bitmap_size(num_vertices)); // bitmap data to store 'visited' information
+  std::vector<uint16_t> level(test_opts.num_vertices); // Array to store each vertex's level (a distance from the source vertex)
+  std::vector<uint64_t> visited_filter(utility::bitmap_size(test_opts.num_vertices)); // bitmap data to store 'visited' information
 
-  bfs::init_bfs(num_vertices, level.data(), visited_filter.data());
-  find_bfs_root(num_vertices, index, level.data());
+  bfs::init_bfs(test_opts.num_vertices, level.data(), visited_filter.data());
+  find_bfs_root(test_opts.num_vertices, index, level.data());
 
   const auto bfs_start_time = utility::elapsed_time_sec();
-  const uint16_t max_level = bfs::run_bfs(num_vertices, index, edges, level.data(), visited_filter.data());
+  const uint16_t max_level = bfs::run_bfs(test_opts.num_vertices, index, edges, level.data(), visited_filter.data());
   const auto bfs_time = utility::elapsed_time_sec(bfs_start_time);
   std::cout << "BFS took (s) " << bfs_time << std::endl;
-  
-  count_level(num_vertices, max_level, level.data());
+
+  count_level(test_opts.num_vertices, max_level, level.data());
 
   return 0;
 }

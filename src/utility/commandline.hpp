@@ -189,6 +189,7 @@ void umt_handle_options(void* optstruct, int(*handler)(void*, int, char*[]), voi
   if (handler(optstruct, umt_opts_argc, umt_opts_argv)) {
     for (auto it = umt_usageprinters.begin(); it != umt_usageprinters.end(); it++) {
       (*it)(umt_opts_argv[0]);
+      std::cout << std::endl;
     }
   }
 }
