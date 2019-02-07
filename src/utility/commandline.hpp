@@ -183,6 +183,8 @@ void umt_getoptions(utility::umt_optstruct_t* testopts, int argc, char *argv[])
 
 void umt_handle_options(void* optstruct, int(*handler)(void*, int, char*[]), void(*usage)(char*) )
 {
+  optind = 1;
+  opterr = 0;
   if (usage) {
     umt_usageprinters.push_back(usage);
   }
