@@ -75,7 +75,7 @@ struct Cube {
   size_t tile_size;  // Size of each tile (assumed to be the same for each tile)
   size_t cube_size;  // Total bytes in cube
   off_t page_size;
-  vector<utility::umap_fits_file::Tile> tiles;  // Just one column for now
+  std::vector<utility::umap_fits_file::Tile> tiles;  // Just one column for now
 };
 
 static std::unordered_map<void*, Cube*>  Cubes;
@@ -138,7 +138,7 @@ class CfitsStoreFile : public Store {
 
 /* Returns pointer to cube[Z][Y][X] Z=time, X/Y=2D space coordinates */
 void* PerFits_alloc_cube(
-    string name,
+    std::string name,
     size_t* BytesPerElement,            /* Output: size of each element of cube */
     size_t* xDim,                       /* Output: Dimension of X */
     size_t* yDim,                       /* Output: Dimension of Y */
@@ -149,7 +149,7 @@ void* PerFits_alloc_cube(
 
   Cube* cube = new Cube{.tile_size = 0, .cube_size = 0};
   cube->page_size = utility::umt_getpagesize();
-  string basename(name);
+  std::string basename(name);
 
   *xDim = *yDim = *BytesPerElement = 0;
   for (int i = 1; ; ++i) {
@@ -159,7 +159,7 @@ void* PerFits_alloc_cube(
 
     if ( stat(ss.str().c_str(), &sbuf) == -1 ) {
       if ( i == 1 ) {
-        cerr << "File: " << ss.str() << " does not exist\n";
+        std::cerr << "File: " << ss.str() << " does not exist\n";
         return region;
       }
       break;
@@ -167,7 +167,7 @@ void* PerFits_alloc_cube(
     utility::umap_fits_file::Tile T( ss.str() );
     ss.str(""); ss.clear();
 
-    ss << T << endl;
+    ss << T << std::endl;
 
     utility::umap_fits_file::Tile_Dim dim = T.get_Dim();
     if ( *BytesPerElement == 0 ) {
@@ -202,7 +202,7 @@ void* PerFits_alloc_cube(
 
   cstore->region = umap_ex(NULL, cube->cube_size, prot, flags, 0, 0, cstore);
   if ( cstore->region == UMAP_FAILED ) {
-      ostringstream ss;
+      std::ostringstream ss;
       ss << "umap of " << cube->cube_size << " bytes failed for Cube";
       perror(ss.str().c_str());
       return NULL;
@@ -219,7 +219,7 @@ void PerFits_free_cube(void* region)
   Cube* cube = it->second;
 
   if (uunmap(region, cube->cube_size) < 0) {
-    ostringstream ss;
+    std::ostringstream ss;
     ss << "uunmap of " << cube->cube_size << " bytes failed on region " << region << ": ";
     perror(ss.str().c_str());
     exit(-1);

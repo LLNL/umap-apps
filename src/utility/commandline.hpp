@@ -25,6 +25,7 @@
 #include <unistd.h>     // getopt()
 #include <getopt.h>     // duh...
 #include "umap/umap.h"
+#include <omp.h>
 
 namespace utility {
 typedef struct {
@@ -45,18 +46,22 @@ typedef struct {
 
 static char const* DIRNAME = "/mnt/intel/";
 static char const* FILENAME = "abc";
-const uint64_t NUMPAGES = 10000000;
-const uint64_t NUMTHREADS = 2;
-const uint64_t BUFFERSIZE = 16;
 
-using namespace std;
+static const uint64_t NUMPAGES = 10000000;
+static const uint64_t NUMTHREADS = 2;
+static const uint64_t BUFFERSIZE = 16;
 
 static std::list< void(*)(char*) > umt_usageprinters;
 
 /* If this function returns a non-zero condition, then print the usage function and quit */
 static void default_usage(char* pname)
 {
-  cerr
+#ifdef _OPENMP
+  uint64_t num_threads = omp_get_num_threads();
+#else
+  uint64_t num_threads = NUMTHREADS;
+#endif
+  std::cerr
   << "Usage: " << pname << " [--initonly] [--noinit] [--directio]"
   <<                       " [--usemmap] [-p #] [-t #] [-b #] [-f name]\n\n"
   << " --help                 - This message\n"
@@ -64,14 +69,14 @@ static void default_usage(char* pname)
   << " --noinit               - Use previously initialized file\n"
   << " --usemmap              - Use mmap instead of umap\n"
   << " --shuffle              - Shuffle memory accesses (instead of sequential access)\n"
-  << " -p # of pages          - default: " << NUMPAGES << endl
-  << " -t # of threads        - default: " << NUMTHREADS << endl
+  << " -p # of pages          - default: " << NUMPAGES << std::endl
+  << " -t # of threads        - default: " << num_threads << std::endl
   << " -u # of uffd threads   - default: " << umap_cfg_get_uffdthreads() << " worker threads\n"
   << " -b # page buffer size  - default: " << umap_cfg_get_bufsize() << " Pages\n"
   << " -a # pages to access   - default: 0 - access all pages\n"
   << " -f [file name]         - backing file name.  Or file basename if multiple files\n"
   << " -d [directory name]    - backing directory name.  Or dir basename if multiple dirs\n"
-  << " -P # page size         - default: " << umap_cfg_get_pagesize() << endl;
+  << " -P # page size         - default: " << umap_cfg_get_pagesize() << std::endl;
 }
 
 static int default_getoptions(void* optstruct, int argc, char *argv[])
@@ -92,6 +97,12 @@ static int default_getoptions(void* optstruct, int argc, char *argv[])
   testops->filename = FILENAME;
   testops->dirname = DIRNAME;
   testops->pagesize = umap_cfg_get_pagesize();
+
+#ifdef _OPENMP
+  testops->numthreads = omp_get_num_threads();
+#else
+  testops->numthreads = NUMTHREADS;
+#endif
 
   while (1) {
     int option_index = 0;
@@ -151,7 +162,7 @@ static int default_getoptions(void* optstruct, int argc, char *argv[])
   }
 
   if (testops->numpages < testops->pages_to_access) {
-    cerr << "Invalid -a argument " << testops->pages_to_access << "\n";
+    std::cerr << "Invalid -a argument " << testops->pages_to_access << "\n";
     return -1;
   }
 
@@ -165,6 +176,9 @@ static int default_getoptions(void* optstruct, int argc, char *argv[])
   if (testops->uffdthreads != umap_cfg_get_uffdthreads())
     umap_cfg_set_uffdthreads(testops->uffdthreads);
 
+  #ifdef _OPENMP
+    omp_set_num_threads(testops->numthreads);
+  #endif
   umap_cfg_set_bufsize(testops->bufsize);
 }
 
