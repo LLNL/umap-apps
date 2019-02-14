@@ -123,14 +123,13 @@ class cube_iterator_with_vector {
     return m_vector.position(time_offset);
   }
   
-  pixel_type get_pixel_value_with_streak(const size_t psf_width) const {
+  pixel_type get_pixel_value_with_streak() const {
     const auto xy = current_xy_position();
     ssize_t x_pos = xy.first;
     ssize_t y_pos = xy.second;
 
-    double exp_time = 40;
-    ///when exposure time is written into cube info:
-    ///double exp_time = cube.exp_times[current_pos];
+    double exp_time = m_cube.exposuretime_list[current_pos];
+    size_t psf_width = m_cube.psf_list[current_pos];
 
     size_t streak_length = sqrt(pow((exp_time / m_vector.x_slope), 2) + pow((exp_time / m_vector.y_slope), 2));
     double phi = atan(m_vector.x_slope / m_vector.y_slope); ///simplified from (streak_length_y/streak_length_x)
@@ -145,7 +144,7 @@ class cube_iterator_with_vector {
         size_t y_pixel = std::round(y_pos + sin(phi)*x_offset + cos(phi)*y_offset);
         
         ///Following code is for a weighted sum using convolution of gaussian with streak
-        pixel_type psfwidth_sq = psf_width*psf_width; //need to figure out converting types here
+        pixel_type psfwidth_sq = (pixel_type) psf_width*psf_width;
         pixel_type coef = (1/(2*streak_length))*(2*psfwidth_sq*M_PI/sqrt(2*M_PI*psfwidth_sq));
         pixel_type xarg_denom = 2*sqrt(2*psfwidth_sq);
         pixel_type xarg1 = (streak_length - 2*x_offset)/xarg_denom;
