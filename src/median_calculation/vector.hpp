@@ -132,7 +132,7 @@ class cube_iterator_with_vector {
     size_t psf_width = m_cube.psf_list[current_pos];
 
     size_t streak_length = sqrt(pow((exp_time / m_vector.x_slope), 2) + pow((exp_time / m_vector.y_slope), 2));
-    double phi = atan(m_vector.x_slope / m_vector.y_slope); ///simplified from (streak_length_y/streak_length_x)
+    double phi = atan2(m_vector.x_slope,m_vector.y_slope); ///simplified from (streak_length_y/streak_length_x)
 
     pixel_type result = 0;
 
