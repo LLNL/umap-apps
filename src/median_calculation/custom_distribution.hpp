@@ -31,9 +31,7 @@ class custom_distribution {
  public:
   custom_distribution(const std::string &pdf_filename)
   {
-	//somehow load in pdf (arcsec/sec)
-	//get min_bound, max_bound, and num_bins as values from pdf_bins
-	//get pdf values and put into array
+	//probability density function should come from file provided via DECam_vectors.py
 	//should be perp_bins,perp_vals,para_bins,para_vals
 	
 	std::vector<double> para_pdf;
@@ -105,10 +103,10 @@ class custom_distribution {
   //assumes same epoch for both frames
   std::vector<float> ecliptic_to_equatorial(float para, float perp)
   {
-	double ecl_obl = 23.439281; //degrees
-	double dec = asin(sin(ecl_obl)*sin(para*206265.0)*cos(perp*206265.0)+cos(ecl_obl)*sin(perp*206265.0));
-	double ra = acos((cos(para*206265.0)*cos(perp*206265.0))/cos(dec));
-	std::vector<double> v = {ra/206265.0,dec/2065265.0}; //now in arcsec/sec
+	double ecl_obl = 0.4090926; //radians
+	double dec = asin(sin(ecl_obl)*sin(para/206265.0)*cos(perp/206265.0)+cos(ecl_obl)*sin(perp/206265.0));
+	double ra = acos((cos(para/206265.0)*cos(perp/206265.0))/cos(dec));
+	std::vector<double> v = {ra*206265.0,dec*2065265.0}; //now in arcsec/sec
 	return v; 
   }
 };	
