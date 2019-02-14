@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "vector.hpp"
 #include "cube.hpp"
 #include "beta_distribution.hpp"
+#include "custom_distribution.hpp"
 
 using namespace median;
 
@@ -119,7 +120,33 @@ std::vector<double> read_exposuretime(const size_t size_k) {
     for (size_t i = 0; i < size_k; ++i) exposuretime_list[i] = 40;
   }
 
-  return timestamp_list;
+  return exposuretime_list;
+}
+
+std::vector<double> read_psf(const size_t size_k) {
+  std::vector<double> psf_list;
+
+  const char *psf_file_name = std::getenv("PSF_FILE");
+  if (psf_file_name != nullptr) {
+    std::ifstream ifs(psf_file_name);
+    if (!ifs.is_open()) {
+      std::cerr << "Cannot open " << psf_file_name << std::endl;
+      std::abort();
+    }
+    for (double psf; ifs >> psf;) {
+      psf_list.emplace_back(psf);
+    }
+    if (psf_list.size() != size_k) {
+      std::cerr << "#of lines in " << psf_file_name << " is not the same as #of fits files" << std::endl;
+      std::abort();
+    }
+  } else {
+    // If a list of psfs is not given, assume that each psf is 1
+    exposuretime_list.resize(size_k);
+    for (size_t i = 0; i < size_k; ++i) psf_list[i] = 1.0;
+  }
+
+  return psf_list;
 }
 
 std::pair<double, std::vector<std::pair<pixel_type, vector_xy>>>
@@ -140,8 +167,8 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 #endif
     std::uniform_int_distribution<int> x_start_dist(0, std::get<0>(cube.size()) - 1);
     std::uniform_int_distribution<int> y_start_dist(0, std::get<1>(cube.size()) - 1);
-    beta_distribution x_beta_dist(3, 2);
-    beta_distribution y_beta_dist(3, 2);
+    const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
+    custom_distribution slope_distribution(slope_filename);
     std::uniform_int_distribution<int> plus_or_minus(0, 1);
 
     // Shoot random vectors using multiple threads
@@ -149,16 +176,15 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 #pragma omp for
 #endif
     for (int i = 0; i < num_random_vector; ++i) {
+      
+      //Slope selection is (for now) assuming x is RA and y is DEC
+      const std::vector<double> slopes = slope_distribution();
+      const double x_slope = slopes[0];
+      const double y_slope = slopes[1];
+      
       const double x_intercept = x_start_dist(rnd_engine);
       const double y_intercept = y_start_dist(rnd_engine);
-
-      // Changed to the const value to 2 from 25 so that vectors won't access
-      // out of range of the cube with a large number of frames
-      //
-      // This is a temporary measures
-      const double x_slope = x_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
-      const double y_slope = y_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
-
+      
       vector_xy vector{x_slope, x_intercept, y_slope, y_intercept};
 
       cube_iterator_with_vector<pixel_type> begin(cube, vector, 0.0);
@@ -224,7 +250,7 @@ int main(int argc, char **argv) {
   size_t size_x; size_t size_y; size_t size_k;
   pixel_type *image_data;
   map_fits(options.filename, &size_x, &size_y, &size_k, &image_data);
-  cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k), read_exposuretime(size_k));
+  cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k), read_exposuretime(size_k), read_psf(size_k));
 
   const std::size_t num_random_vector = get_num_vectors();
 
