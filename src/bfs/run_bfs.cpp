@@ -66,7 +66,7 @@ map_graph(const size_t num_vertices, const size_t num_edges, const std::string &
 
   int fd = -1;
   void *map_raw_address = nullptr;
-  map_raw_address = utility::map_in_file(graph_file_name, false, true, false, graph_size);
+  map_raw_address = utility::map_in_file(graph_file_name, false, true, usemmap, graph_size);
   if (map_raw_address == nullptr) {
     std::cerr << "Failed to map the graph" << std::endl;
     std::abort();
