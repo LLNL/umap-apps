@@ -34,10 +34,9 @@ class custom_distribution {
 	//probability density function should come from file provided via DECam_vectors.py
 	//should be perp_bins,perp_vals,para_bins,para_vals
 	
-	std::vector<double> para_pdf;
-	std::vector<double> perp_pdf;
-	std::vector<double> perp_bins;
-	std::vector<double> perp_bins;
+	std::vector<double> perp_pdf, perp_bins, para_pdf, para_bins;
+	int nbins;
+	double perp_minBound, perp_maxBound, para_minBound, para_maxBound;
 	int check = 0;
 	  
 	std::ifstream ifile(pdf_file_name);
@@ -48,44 +47,55 @@ class custom_distribution {
 	std::string line;
 	while (std::getline(ifile, line))  
 	{
-		++check;
 		if (check==0) continue; //for the first row having column names
-		std::istringstream iss{line};
-		double elem;
-		perp_bins.push_back(std::getline(iss, elem, ','));
-		perp_vals.push_back(std::getline(iss, elem, ','));
-		para_bins.push_back(std::getline(iss, elem, ','));
-		para_vals.push_back(std::getline(iss, elem));
+		++check;
+		std::istrinstream iss{line};
+		
+
+		std::string temp;
+		double perp_b, perp_v, para_b, para_v;
+		std::getline(iss, temp, ',') >> perp_b;
+		std::getline(iss, temp, ',') >> perp_v;
+		std::getline(iss, temp, ',') >> para_b;
+		std::getline(iss, temp) >> para_v;
+		perp_bins.push_back(perp_b);
+		perp_pdf.push_back(perp_v);
+		para_bins.push_back(para_b);
+		para_pdf.push_back(para_v);
 	}
 
-	int nbins = check-1;
-	double para_minBound = para_bins.front(), para_maxBound = para_bins.back();
-	double perp_minBound = perp_bins.front(), perp_maxBound = perp_bins.back();
+	nbins = check-1;
+	para_minBound = para_bins.front(), para_maxBound = para_bins.back();
+	perp_minBound = perp_bins.front(), perp_maxBound = perp_bins.back();
 	std::vector<double> para_cdf = gen_cdf(para_pdf,nbins,para_minBound,para_maxBound);  
 	std::vector<double> perp_cdf = gen_cdf(perp_pdf,nbins,perp_minBound,perp_maxBound);	
   }
 
-  double operator() {
+  std::vector<double> operator()() {
     double para = cdf_sample(para_cdf,nbins,para_minBound,para_maxBound);
     double perp = cdf_sample(perp_cdf,nbins,perp_minBound,perp_maxBound);
     return ecliptic_to_equatorial(para,perp);
   }
 	
  private:
-	
+
+  std::vector<double> perp_pdf, perp_bins, para_pdf, para_pdf;
+  int nbins;
+  double para_minBound, perp_minBound, para_maxBound, perp_maxBound;
+  	
   //function for sampling a random value from the inverse cdf (inversion is done implicitly)
   double cdf_sample(std::vector<double> cdf, const uint32_t &nbins, const double &minBound, const double maxBound)
   {
-  	double r = drand48(); //figure out a way to include engine
-	std::vector<double>::iterator lwr = std::lower_bound(cdf.begin(), cdf.end(), r)
-  	int off = std:max(0, (int)(lwr - cdf.begin()));
+  	double r = drand48(); //figure out a way to include engine?
+	std::vector<double>::iterator lwr = std::lower_bound(cdf.begin(), cdf.end(), r);
+  	int off = std::max(0, (int)(lwr - cdf.begin()));
   	double t = (r -cdf[off])/(cdf[off + 1] - cdf[off]);
   	double x = (off + t)/(double)(nbins);
   	return minBound + (maxBound-minBound)*x;
   }
   
   //function for creating a cumulative distribution function from a probability distribution function
-  double gen_cdf(std::vector<double> pdf, uint32_t &nbins, const double &minBound, const double maxBound)
+  std::vector<double> gen_cdf(std::vector<double> pdf, uint32_t &nbins, const double &minBound, const double maxBound)
   {
 	std::vector<double> cdf;
 	double dx = (maxBound - minBound)/nbins;

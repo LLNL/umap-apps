@@ -142,7 +142,7 @@ std::vector<double> read_psf(const size_t size_k) {
     }
   } else {
     // If a list of psfs is not given, assume that each psf is 1
-    exposuretime_list.resize(size_k);
+    psf_list.resize(size_k);
     for (size_t i = 0; i < size_k; ++i) psf_list[i] = 1.0;
   }
 
