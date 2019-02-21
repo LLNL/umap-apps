@@ -160,7 +160,7 @@ class cube_iterator_with_vector {
     }
   }
 
-  return (double)result;
+  return result;
 }
 
   // Find the next non-NaN value

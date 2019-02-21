@@ -41,19 +41,23 @@ class cube {
   cube() = default;
 
   cube(const size_t size_x,
-       const size_t size_y,
-       const size_t size_k,
-       pixel_type *const image_data,
-       std::vector<double> timestamp_list)
-      : m_size_x(size_x),
-        m_size_y(size_y),
-        m_size_k(size_k),
-        m_image_data(image_data),
-        m_timestamp_list(std::move(timestamp_list)) {
-    assert(m_size_k <= m_timestamp_list.size());
-        m_exposuretime_list(std::move(exposuretime_list)) {
-    assert(m_size_k <= m_exposuretime_list.size());
-        m_psf_list(std::move(psf_list)) {
+	  const size_t size_y,
+	  const size_t size_k,
+	  pixel_type *const image_data,
+	  std::vector<double> timestamp_list,
+	  std::vector<double> exposuretime_list,
+	  std::vector<double> psf_list)
+	  : m_size_x(size_x),
+	  m_size_y(size_y),
+	  m_size_k(size_k),
+	  m_image_data(image_data),
+	  m_timestamp_list(std::move(timestamp_list)) {
+	  assert(m_size_k <= m_timestamp_list.size());
+  },
+	  m_exposuretime_list(std::move(exposuretime_list)) {
+	  assert(m_size_k <= m_exposuretime_list.size());
+  },
+	  m_psf_list(std::move(psf_list)) {
     assert(m_size_k <= m_psf_list.size());
   }
 

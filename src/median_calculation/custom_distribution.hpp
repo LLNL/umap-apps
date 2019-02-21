@@ -74,13 +74,13 @@ class custom_distribution {
  private:
 	
   //function for sampling a random value from the inverse cdf (inversion is done implicitly)
-  double cdf_sample(std::vector<double> cdf, const uint32_t &nbins, const float &minBound, const float maxBound)
+  double cdf_sample(std::vector<double> cdf, const uint32_t &nbins, const double &minBound, const double maxBound)
   {
   	double r = drand48(); //figure out a way to include engine
 	std::vector<double>::iterator lwr = std::lower_bound(cdf.begin(), cdf.end(), r)
   	int off = std:max(0, (int)(lwr - cdf.begin()));
   	double t = (r -cdf[off])/(cdf[off + 1] - cdf[off]);
-  	double x = (off + t)/(float)(nbins);
+  	double x = (off + t)/(double)(nbins);
   	return minBound + (maxBound-minBound)*x;
   }
   
@@ -101,7 +101,7 @@ class custom_distribution {
   //function for converting ecliptic coordinates to equatorial
   //takes in arcsecs/sec and outputs arcsecs/sec
   //assumes same epoch for both frames
-  std::vector<float> ecliptic_to_equatorial(float para, float perp)
+  std::vector<double> ecliptic_to_equatorial(float para, float perp)
   {
 	double ecl_obl = 0.4090926; //radians
 	double dec = asin(sin(ecl_obl)*sin(para/206265.0)*cos(perp/206265.0)+cos(ecl_obl)*sin(perp/206265.0));
