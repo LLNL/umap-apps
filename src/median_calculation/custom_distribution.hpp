@@ -35,8 +35,6 @@ class custom_distribution {
 	//should be perp_bins,perp_vals,para_bins,para_vals
 	
 	std::vector<double> perp_pdf, perp_bins, para_pdf, para_bins;
-	int nbins;
-	double perp_minBound, perp_maxBound, para_minBound, para_maxBound;
 	int check = 0;
 	  
 	std::ifstream ifile(pdf_file_name);
@@ -67,8 +65,8 @@ class custom_distribution {
 	nbins = check-1;
 	para_minBound = para_bins.front(), para_maxBound = para_bins.back();
 	perp_minBound = perp_bins.front(), perp_maxBound = perp_bins.back();
-	std::vector<double> para_cdf = gen_cdf(para_pdf,nbins,para_minBound,para_maxBound);  
-	std::vector<double> perp_cdf = gen_cdf(perp_pdf,nbins,perp_minBound,perp_maxBound);	
+	para_cdf = gen_cdf(para_pdf,nbins,para_minBound,para_maxBound);  
+	perp_cdf = gen_cdf(perp_pdf,nbins,perp_minBound,perp_maxBound);	
   }
 
   std::vector<double> operator()() {
@@ -79,10 +77,10 @@ class custom_distribution {
 	
  private:
 
-  std::vector<double> perp_pdf, perp_bins, para_pdf, para_pdf;
+  std::vector<double> perp_cdf, para_cdf;
   int nbins;
   double para_minBound, perp_minBound, para_maxBound, perp_maxBound;
-  	
+  
   //function for sampling a random value from the inverse cdf (inversion is done implicitly)
   double cdf_sample(std::vector<double> cdf, const uint32_t &nbins, const double &minBound, const double maxBound)
   {
