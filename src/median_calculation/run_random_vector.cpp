@@ -149,10 +149,34 @@ std::vector<double> read_psf(const size_t size_k) {
   return psf_list;
 }
 
-std::pair<double, std::vector<std::pair<pixel_type, vector_xy>>>
+
+
+	
+// Function to sum across the vector, should skip nan values
+template <typename iterator_type>
+typename iterator_type::value_type
+	vector_sum(iterator_type iterator_begin, iterator_type iterator_end) {
+	using value_type = typename iterator_type::value_type;
+
+	if (iterator_begin == iterator_end)
+		return 0;
+
+	pixel_type total = 0;
+	for (auto iterator(iterator_begin); iterator != iterator_end; ++iterator) {
+		const value_type value = *iterator;
+		if (is_nan(value)) continue;
+		total += value;
+	}
+
+	return total;
+}
+
+
+
+std::pair<double, std::vector<std::vector<pixel_type, pixel_type, vector_xy>>>
 shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
-  std::vector<std::pair<pixel_type, vector_xy>> result(num_random_vector);
+  std::vector<std::vector<pixel_type, pixel_type, vector_xy>> result(num_random_vector);
 
   double total_execution_time = 0.0;
 
@@ -191,9 +215,10 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 
       // median calculation using Torben algorithm
       const auto start = utility::elapsed_time_sec();
-      result[i].first = torben(begin, end);
+      result[i][0] = torben(begin, end);
+	  result[i][1] = vector_sum(begin, end);
       total_execution_time += utility::elapsed_time_sec(start);
-      result[i].second = vector;
+      result[i][2] = vector;
     }
   }
 
@@ -202,20 +227,20 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 
 void print_top_median(const cube<pixel_type> &cube,
                       const size_t num_top,
-                      std::vector<std::pair<pixel_type, vector_xy>> &result) {
+                      std::vector<std::vector<pixel_type, pixel_type, vector_xy>> &result) {
 
   // Sort the results by the descending order of median value
   std::sort(result.begin(), result.end(),
-            [](const std::pair<pixel_type, vector_xy> &lhd,
-               const std::pair<pixel_type, vector_xy> &rhd) {
-              return (lhd.first > rhd.first);
+            [](const std::vector<pixel_type, pixel_type, vector_xy> &lhd,
+               const std::vector<pixel_type, pixel_type, vector_xy> &rhd) {
+              return (lhd[0] > rhd[0]);
             });
 
   // Print out the top 'num_top' median values and corresponding pixel values
   std::cout << "Top " << num_top << " median and pixel values (skip NaN value)" << std::endl;
   for (size_t i = 0; i < num_top; ++i) {
-    const pixel_type median = result[i].first;
-    const vector_xy vector = result[i].second;
+    const pixel_type median = result[i][0];
+    const vector_xy vector = result[i][2];
 
     std::cout << "[" << i << "]" << std::endl;
     std::cout << "Median: " << median << std::endl;

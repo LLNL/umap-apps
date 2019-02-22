@@ -103,6 +103,7 @@ class cube_iterator_with_vector {
 
   // To support
   // value_type val = *iterator
+  // Note: it is possible for this to return nan and functions dependent on this should take necessary precautions
   value_type operator*() const {
     return get_pixel_value_with_streak();
   }
@@ -143,7 +144,10 @@ class cube_iterator_with_vector {
         size_t x_pixel = std::round(x_pos + cos(phi)*x_offset - sin(phi)*y_offset);
         size_t y_pixel = std::round(y_pos + sin(phi)*x_offset + cos(phi)*y_offset);
         
-        ///Following code is for a weighted sum using convolution of gaussian with streak
+		const pixel_type value = m_cube.get_pixel_value(x_pixel, y_pixel, m_current_k_pos);
+        if (is_nan(value)) continue;
+        
+		///Following code is for a weighted sum using convolution of gaussian with streak
         pixel_type psfwidth_sq = (pixel_type) psf_width*psf_width;
         pixel_type coef = (1/(2*streak_length))*(2*psfwidth_sq*M_PI/sqrt(2*M_PI*psfwidth_sq));
         pixel_type xarg_denom = 2*sqrt(2*psfwidth_sq);
@@ -153,13 +157,11 @@ class cube_iterator_with_vector {
         pixel_type yterm = exp(-0.5 *y_offset*y_offset/psfwidth_sq);
         pixel_type weight = coef*xterm*yterm;
 
-        const pixel_type value = m_cube.get_pixel_value(x_pixel, y_pixel, m_current_k_pos);
-        if (is_nan(value)) continue;
-
         result += value*weight;
     }
   }
 
+  if (result == 0) result = nan; // if all streak pixels are nan, return nan
   return result;
 }
 
@@ -171,9 +173,14 @@ class cube_iterator_with_vector {
     for (; m_current_k_pos < size_k; ++m_current_k_pos) {
       const auto xy = current_xy_position();
 
-      if (m_cube.out_of_range(xy.first, xy.second, m_current_k_pos)) continue;
+      if (!m_cube.out_of_range(xy.first, xy.second, m_current_k_pos)) return;
 
-      if (!is_nan(m_cube.get_pixel_value(xy.first, xy.second, m_current_k_pos))) return;
+	  //We're no longer skipping nan values here, but instead after the *() operator.
+	  //The exact places where this is done are in the vector_sum and torben functions.
+	  //This allows us to pull potentially relevant info from around the exact pixel 
+	  //that a vector intersects if the exact pixel is nan.
+
+      //if (!is_nan(m_cube.get_pixel_value(xy.first, xy.second, m_current_k_pos))) return;
     }
 
     m_current_k_pos = size_k; // Prevent the case, m_current_k_pos > size_k.
