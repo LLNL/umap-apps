@@ -263,6 +263,26 @@ void print_top_median(const cube<pixel_type> &cube,
   }
 }
 
+// Function to write results to a csv file in the form:
+// ID | MEDIAN | SUM | X_START | Y_START | X_SLOPE | Y_SLOPE
+void write_tocsv(std::vector<std::vector<pixel_type, pixel_type, vector_xy>> &result) {
+	std::ofstream out("vector_output.csv");
+
+	int id = 0;
+	for (auto& row : result) {
+		
+		out << id << ',';
+		out << row[0] << ',';
+		out << row[1] << ',';
+		out << row[2].x_intercept << ',';
+		out << row[2].y_intercept << ',';
+		out << row[2].x_slope << ',';
+		out << row[2].y_slope << ',';
+		out << '\n';
+		++id;
+	}
+}
+
 int main(int argc, char **argv) {
   utility::umt_optstruct_t options;
   umt_getoptions(&options, argc, argv);
@@ -285,6 +305,8 @@ int main(int argc, char **argv) {
             << "\nvectors/sec = " << static_cast<double>(num_random_vector) / result.first << std::endl;
 
   print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
+
+  write_tocsv(result.second);
 
   utility::umap_fits_file::PerFits_free_cube(image_data);
 
