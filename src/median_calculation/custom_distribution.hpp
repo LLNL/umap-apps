@@ -37,9 +37,9 @@ class custom_distribution {
 	std::vector<double> perp_pdf, perp_bins, para_pdf, para_bins;
 	int check = 0;
 	  
-	std::ifstream ifile(pdf_file_name);
+	std::ifstream ifile(pdf_filename);
 	if (!ifile.is_open()) {
-	      std::cerr << "Cannot open " << pdf_file_name << std::endl;
+	      std::cerr << "Cannot open " << pdf_filename << std::endl;
 	      std::abort();
 	}
 	std::string line;
@@ -47,7 +47,7 @@ class custom_distribution {
 	{
 		if (check==0) continue; //for the first row having column names
 		++check;
-		std::istrinstream iss{line};
+		std::istringstream iss{line};
 		
 
 		std::string temp;
@@ -93,7 +93,7 @@ class custom_distribution {
   }
   
   //function for creating a cumulative distribution function from a probability distribution function
-  std::vector<double> gen_cdf(std::vector<double> pdf, uint32_t &nbins, const double &minBound, const double maxBound)
+  std::vector<double> gen_cdf(std::vector<double> pdf, int nbins, const double &minBound, const double maxBound)
   {
 	std::vector<double> cdf;
 	double dx = (maxBound - minBound)/nbins;

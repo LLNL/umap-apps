@@ -51,13 +51,11 @@ class cube {
 	  m_size_y(size_y),
 	  m_size_k(size_k),
 	  m_image_data(image_data),
-	  m_timestamp_list(std::move(timestamp_list)) {
-	  assert(m_size_k <= m_timestamp_list.size());
-  },
-	  m_exposuretime_list(std::move(exposuretime_list)) {
-	  assert(m_size_k <= m_exposuretime_list.size());
-  },
+	  m_timestamp_list(std::move(timestamp_list)),
+	  m_exposuretime_list(std::move(exposuretime_list)),
 	  m_psf_list(std::move(psf_list)) {
+    assert(m_size_k <= m_timestamp_list.size());
+    assert(m_size_k <= m_exposuretime_list.size());
     assert(m_size_k <= m_psf_list.size());
   }
 
@@ -116,7 +114,7 @@ class cube {
     assert(k < m_psf_list.size());
     return m_psf_list[k];
   }
-
+    
  private:
   /// -------------------------------------------------------------------------------- ///
   /// Private methods
@@ -165,8 +163,8 @@ class cube {
   pixel_type *const m_image_data;
 
   std::vector<double> m_timestamp_list; // an array of the timestamp of each frame.
-  std::vector<double> m_exposuretime_list; // an array of the exposure time of each frame.
-  std::vector<double> m_psf_list; // an array of the psf fwhm of each frame.
+  std::vector<double> m_exposuretime_list; // an array of the exposure time of each image
+  std::vector<double> m_psf_list; //an array of the psf fwhm of each image
 };
 
 } // namespace median

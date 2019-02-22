@@ -128,8 +128,8 @@ class cube_iterator_with_vector {
     ssize_t x_pos = xy.first;
     ssize_t y_pos = xy.second;
 
-    double exp_time = m_cube.exposuretime_list[current_pos];
-    size_t psf_width = m_cube.psf_list[current_pos];
+    double exp_time = m_cube.exposuretime(m_current_k_pos);
+    size_t psf_width = m_cube.psf(m_current_k_pos);
 
     size_t streak_length = sqrt(pow((exp_time / m_vector.x_slope), 2) + pow((exp_time / m_vector.y_slope), 2));
     double phi = atan2(m_vector.x_slope,m_vector.y_slope); ///simplified from (streak_length_y/streak_length_x)
@@ -148,7 +148,7 @@ class cube_iterator_with_vector {
         pixel_type coef = (1/(2*streak_length))*(2*psfwidth_sq*M_PI/sqrt(2*M_PI*psfwidth_sq));
         pixel_type xarg_denom = 2*sqrt(2*psfwidth_sq);
         pixel_type xarg1 = (streak_length - 2*x_offset)/xarg_denom;
-        pixel_type xarg1 = (streak_length + 2*x_offset)/xarg_denom;
+        pixel_type xarg2 = (streak_length + 2*x_offset)/xarg_denom;
         pixel_type xterm = erf(xarg1) + erf(xarg2);
         pixel_type yterm = exp(-0.5 *y_offset*y_offset/psfwidth_sq);
         pixel_type weight = coef*xterm*yterm;
