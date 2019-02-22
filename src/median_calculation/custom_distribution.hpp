@@ -72,7 +72,11 @@ class custom_distribution {
   std::vector<double> operator()() {
     double para = cdf_sample(para_cdf,nbins,para_minBound,para_maxBound);
     double perp = cdf_sample(perp_cdf,nbins,perp_minBound,perp_maxBound);
-    return ecliptic_to_equatorial(para,perp);
+    std::vector<double> ra_dec = ecliptic_to_equatorial(para,perp);
+	//convert from ra/dec to pixel coordinates
+	//Should generalize in the future to be based on fits header wcs
+	std::vector<double> xy_coords = {-ra_dec[0]/0.27,ra_dec[1]/0.27};
+	return xy_coords;
   }
 	
  private:

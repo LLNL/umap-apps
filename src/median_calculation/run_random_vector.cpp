@@ -177,7 +177,6 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 #endif
     for (int i = 0; i < num_random_vector; ++i) {
       
-      //Slope selection is (for now) assuming x is RA and y is DEC
       const std::vector<double> slopes = slope_distribution();
       const double x_slope = slopes[0];
       const double y_slope = slopes[1];
