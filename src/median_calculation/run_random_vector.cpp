@@ -217,7 +217,7 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
       // median calculation using Torben algorithm
 	  // vector info stored as [MEDIAN, SUM, VECTOR]
       const auto start = utility::elapsed_time_sec();
-	  result[i] = std::make_tuple(torben(begin,end),vector_sum(begin,end),current_vector));
+	  result[i] = std::make_tuple(torben(begin,end),vector_sum(begin,end),current_vector);
       total_execution_time += utility::elapsed_time_sec(start);
     }
   }
@@ -240,7 +240,7 @@ void print_top_median(const cube<pixel_type> &cube,
   std::cout << "Top " << num_top << " median and pixel values (skip NaN value)" << std::endl;
   for (size_t i = 0; i < num_top; ++i) {
     const pixel_type median = std::get<0>(result[i]);
-    const vector_xy vector = std::get<2>result[i]);
+    const vector_xy vector = std::get<2>(result[i]);
 
     std::cout << "[" << i << "]" << std::endl;
     std::cout << "Median: " << median << std::endl;
