@@ -174,10 +174,10 @@ typename iterator_type::value_type
 
 
 
-std::pair<double, std::vector<std::vector<pixel_type, pixel_type, vector_xy>>>
+std::pair<double, std::vector<std::tuple<pixel_type, pixel_type, vector_xy>>>
 shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
-  std::vector<std::vector<pixel_type, pixel_type, vector_xy>> result(num_random_vector);
+  std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> result(num_random_vector);
 
   double total_execution_time = 0.0;
 
@@ -215,11 +215,10 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
       cube_iterator_with_vector<pixel_type> end(cube, current_vector);
 
       // median calculation using Torben algorithm
+	  // vector info stored as [MEDIAN, SUM, VECTOR]
       const auto start = utility::elapsed_time_sec();
-      result[i][0] = torben(begin, end);
-	  result[i][1] = vector_sum(begin, end);
+	  result[i] = std::make_tuple(torben(begin,end),vector_sum(begin,end),current_vector));
       total_execution_time += utility::elapsed_time_sec(start);
-      result[i][2] = current_vector;
     }
   }
 
@@ -228,20 +227,20 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 
 void print_top_median(const cube<pixel_type> &cube,
                       const size_t num_top,
-                      std::vector<std::vector<pixel_type, pixel_type, vector_xy>> &result) {
+                      std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> &result) {
 
   // Sort the results by the descending order of median value
   std::sort(result.begin(), result.end(),
-            [](const std::vector<pixel_type, pixel_type, vector_xy> &lhd,
-               const std::vector<pixel_type, pixel_type, vector_xy> &rhd) {
-              return (lhd[0] > rhd[0]);
+            [](const std::tuple<pixel_type, pixel_type, vector_xy> &lhd,
+               const std::tuple<pixel_type, pixel_type, vector_xy> &rhd) {
+              return (std::get<0>(lhd) > std::get<0>(rhd));
             });
 
   // Print out the top 'num_top' median values and corresponding pixel values
   std::cout << "Top " << num_top << " median and pixel values (skip NaN value)" << std::endl;
   for (size_t i = 0; i < num_top; ++i) {
-    const pixel_type median = result[i][0];
-    const vector_xy vector = result[i][2];
+    const pixel_type median = std::get<0>(result[i]);
+    const vector_xy vector = std::get<2>result[i]);
 
     std::cout << "[" << i << "]" << std::endl;
     std::cout << "Median: " << median << std::endl;
@@ -266,19 +265,19 @@ void print_top_median(const cube<pixel_type> &cube,
 
 // Function to write results to a csv file in the form:
 // ID | MEDIAN | SUM | X_START | Y_START | X_SLOPE | Y_SLOPE
-void write_tocsv(std::vector<std::vector<pixel_type, pixel_type, vector_xy>> &result) {
+void write_tocsv(std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> &result) {
 	std::ofstream out("vector_output.csv");
 
 	int id = 0;
 	for (auto& row : result) {
 		
 		out << id << ',';
-		out << row[0] << ',';
-		out << row[1] << ',';
-		out << row[2].x_intercept << ',';
-		out << row[2].y_intercept << ',';
-		out << row[2].x_slope << ',';
-		out << row[2].y_slope << ',';
+		out << std::get<0>(row) << ',';
+		out << std::get<1>(row) << ',';
+		out << std::get<2>(row).x_intercept << ',';
+		out << std::get<2>(row).y_intercept << ',';
+		out << std::get<2>(row).x_slope << ',';
+		out << std::get<2>(row).y_slope << ',';
 		out << '\n';
 		++id;
 	}
@@ -299,7 +298,7 @@ int main(int argc, char **argv) {
 
   const std::size_t num_random_vector = get_num_vectors();
 
-  std::pair<double, std::vector<std::vector<pixel_type, pixel_type, vector_xy>>> result = shoot_vector(cube, num_random_vector);
+  auto result = shoot_vector(cube, num_random_vector);
 
   std::cout << "#of vectors = " << num_random_vector
             << "\nexecution time (sec) = " << result.first
