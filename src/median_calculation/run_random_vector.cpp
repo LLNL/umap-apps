@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <math.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -208,17 +209,17 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
       const double x_intercept = x_start_dist(rnd_engine);
       const double y_intercept = y_start_dist(rnd_engine);
       
-      vector_xy vector{x_slope, x_intercept, y_slope, y_intercept};
+      vector_xy current_vector{x_slope, x_intercept, y_slope, y_intercept};
 
-      cube_iterator_with_vector<pixel_type> begin(cube, vector, 0.0);
-      cube_iterator_with_vector<pixel_type> end(cube, vector);
+      cube_iterator_with_vector<pixel_type> begin(cube, current_vector, 0.0);
+      cube_iterator_with_vector<pixel_type> end(cube, current_vector);
 
       // median calculation using Torben algorithm
       const auto start = utility::elapsed_time_sec();
       result[i][0] = torben(begin, end);
 	  result[i][1] = vector_sum(begin, end);
       total_execution_time += utility::elapsed_time_sec(start);
-      result[i][2] = vector;
+      result[i][2] = current_vector;
     }
   }
 
@@ -298,7 +299,7 @@ int main(int argc, char **argv) {
 
   const std::size_t num_random_vector = get_num_vectors();
 
-  auto result = shoot_vector(cube, num_random_vector);
+  std::pair<double, std::vector<std::vector<pixel_type, pixel_type, vector_xy>>> result = shoot_vector(cube, num_random_vector);
 
   std::cout << "#of vectors = " << num_random_vector
             << "\nexecution time (sec) = " << result.first

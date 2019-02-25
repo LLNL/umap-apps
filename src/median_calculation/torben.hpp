@@ -24,7 +24,9 @@ This implementation also contains the modification proposed in https://github.co
 
 #include <algorithm>
 #include <iterator>
+#include <math.h>
 
+#include "utility.hpp"
 namespace median {
 
 /*
@@ -83,7 +85,7 @@ torben(iterator_type iterator_begin, iterator_type iterator_end) {
   std::size_t length = 0;
   for (auto iterator(iterator_begin); iterator != iterator_end; ++iterator) {
     const value_type value = *iterator;
-	if (is_nan(value)) continue;
+    if (is_nan(value)) continue;
     min = std::min(min, value);
     max = std::max(max, value);
     ++length;

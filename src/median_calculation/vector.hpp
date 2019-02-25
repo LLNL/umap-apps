@@ -161,7 +161,7 @@ class cube_iterator_with_vector {
     }
   }
 
-  if (result == 0) result = nan; // if all streak pixels are nan, return nan
+  if (result == 0) result = std::numeric_limits<pixel_type>::quiet_NaN(); // if all streak pixels are nan, return nan
   return result;
 }
 
