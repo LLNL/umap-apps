@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <math.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -34,6 +35,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "vector.hpp"
 #include "cube.hpp"
 #include "beta_distribution.hpp"
+#include "custom_distribution.hpp"
 
 using namespace median;
 
@@ -96,10 +98,86 @@ std::vector<double> read_timestamp(const size_t size_k) {
   return timestamp_list;
 }
 
-std::pair<double, std::vector<std::pair<pixel_type, vector_xy>>>
+std::vector<double> read_exposuretime(const size_t size_k) {
+  std::vector<double> exposuretime_list;
+
+  const char *exposuretime_file_name = std::getenv("EXPOSURETIME_FILE");
+  if (exposuretime_file_name != nullptr) {
+    std::ifstream ifs(exposuretime_file_name);
+    if (!ifs.is_open()) {
+      std::cerr << "Cannot open " << exposuretime_file_name << std::endl;
+      std::abort();
+    }
+    for (double exposuretime; ifs >> exposuretime;) {
+      exposuretime_list.emplace_back(exposuretime);
+    }
+    if (exposuretime_list.size() != size_k) {
+      std::cerr << "#of lines in " << exposuretime_file_name << " is not the same as #of fits files" << std::endl;
+      std::abort();
+    }
+  } else {
+    // If a list of exposure times is not given, assume that each exposure time is 40 s
+    exposuretime_list.resize(size_k);
+    for (size_t i = 0; i < size_k; ++i) exposuretime_list[i] = 40;
+  }
+
+  return exposuretime_list;
+}
+
+std::vector<double> read_psf(const size_t size_k) {
+  std::vector<double> psf_list;
+
+  const char *psf_file_name = std::getenv("PSF_FILE");
+  if (psf_file_name != nullptr) {
+    std::ifstream ifs(psf_file_name);
+    if (!ifs.is_open()) {
+      std::cerr << "Cannot open " << psf_file_name << std::endl;
+      std::abort();
+    }
+    for (double psf; ifs >> psf;) {
+      psf_list.emplace_back(psf);
+    }
+    if (psf_list.size() != size_k) {
+      std::cerr << "#of lines in " << psf_file_name << " is not the same as #of fits files" << std::endl;
+      std::abort();
+    }
+  } else {
+    // If a list of psfs is not given, assume that each psf is 1
+    psf_list.resize(size_k);
+    for (size_t i = 0; i < size_k; ++i) psf_list[i] = 1.0;
+  }
+
+  return psf_list;
+}
+
+
+
+	
+// Function to sum across the vector, should skip nan values
+template <typename iterator_type>
+typename iterator_type::value_type
+	vector_sum(iterator_type iterator_begin, iterator_type iterator_end) {
+	using value_type = typename iterator_type::value_type;
+
+	if (iterator_begin == iterator_end)
+		return 0;
+
+	pixel_type total = 0;
+	for (auto iterator(iterator_begin); iterator != iterator_end; ++iterator) {
+		const value_type value = *iterator;
+		if (is_nan(value)) continue;
+		total += value;
+	}
+
+	return total;
+}
+
+
+
+std::pair<double, std::vector<std::tuple<pixel_type, pixel_type, vector_xy>>>
 shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
-  std::vector<std::pair<pixel_type, vector_xy>> result(num_random_vector);
+  std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> result(num_random_vector);
 
   double total_execution_time = 0.0;
 
@@ -114,8 +192,8 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 #endif
     std::uniform_int_distribution<int> x_start_dist(0, std::get<0>(cube.size()) - 1);
     std::uniform_int_distribution<int> y_start_dist(0, std::get<1>(cube.size()) - 1);
-    beta_distribution x_beta_dist(3, 2);
-    beta_distribution y_beta_dist(3, 2);
+    const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
+    custom_distribution slope_distribution(slope_filename);
     std::uniform_int_distribution<int> plus_or_minus(0, 1);
 
     // Shoot random vectors using multiple threads
@@ -123,26 +201,24 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 #pragma omp for
 #endif
     for (int i = 0; i < num_random_vector; ++i) {
+      
+      const std::vector<double> slopes = slope_distribution();
+      const double x_slope = slopes[0];
+      const double y_slope = slopes[1];
+      
       const double x_intercept = x_start_dist(rnd_engine);
       const double y_intercept = y_start_dist(rnd_engine);
+      
+      vector_xy current_vector{x_slope, x_intercept, y_slope, y_intercept};
 
-      // Changed to the const value to 2 from 25 so that vectors won't access
-      // out of range of the cube with a large number of frames
-      //
-      // This is a temporary measures
-      const double x_slope = x_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
-      const double y_slope = y_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
-
-      vector_xy vector{x_slope, x_intercept, y_slope, y_intercept};
-
-      cube_iterator_with_vector<pixel_type> begin(cube, vector, 0.0);
-      cube_iterator_with_vector<pixel_type> end(cube, vector);
+      cube_iterator_with_vector<pixel_type> begin(cube, current_vector, 0.0);
+      cube_iterator_with_vector<pixel_type> end(cube, current_vector);
 
       // median calculation using Torben algorithm
+	  // vector info stored as [MEDIAN, SUM, VECTOR]
       const auto start = utility::elapsed_time_sec();
-      result[i].first = torben(begin, end);
+	  result[i] = std::make_tuple(torben(begin,end),vector_sum(begin,end),current_vector);
       total_execution_time += utility::elapsed_time_sec(start);
-      result[i].second = vector;
     }
   }
 
@@ -151,20 +227,20 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 
 void print_top_median(const cube<pixel_type> &cube,
                       const size_t num_top,
-                      std::vector<std::pair<pixel_type, vector_xy>> &result) {
+                      std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> &result) {
 
   // Sort the results by the descending order of median value
   std::sort(result.begin(), result.end(),
-            [](const std::pair<pixel_type, vector_xy> &lhd,
-               const std::pair<pixel_type, vector_xy> &rhd) {
-              return (lhd.first > rhd.first);
+            [](const std::tuple<pixel_type, pixel_type, vector_xy> &lhd,
+               const std::tuple<pixel_type, pixel_type, vector_xy> &rhd) {
+              return (std::get<0>(lhd) > std::get<0>(rhd));
             });
 
   // Print out the top 'num_top' median values and corresponding pixel values
   std::cout << "Top " << num_top << " median and pixel values (skip NaN value)" << std::endl;
   for (size_t i = 0; i < num_top; ++i) {
-    const pixel_type median = result[i].first;
-    const vector_xy vector = result[i].second;
+    const pixel_type median = std::get<0>(result[i]);
+    const vector_xy vector = std::get<2>(result[i]);
 
     std::cout << "[" << i << "]" << std::endl;
     std::cout << "Median: " << median << std::endl;
@@ -187,6 +263,26 @@ void print_top_median(const cube<pixel_type> &cube,
   }
 }
 
+// Function to write results to a csv file in the form:
+// ID | MEDIAN | SUM | X_START | Y_START | X_SLOPE | Y_SLOPE
+void write_tocsv(std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> &result) {
+	std::ofstream out("vector_output.csv");
+
+	int id = 0;
+	for (auto& row : result) {
+		
+		out << id << ',';
+		out << std::get<0>(row) << ',';
+		out << std::get<1>(row) << ',';
+		out << std::get<2>(row).x_intercept << ',';
+		out << std::get<2>(row).y_intercept << ',';
+		out << std::get<2>(row).x_slope << ',';
+		out << std::get<2>(row).y_slope << ',';
+		out << '\n';
+		++id;
+	}
+}
+
 int main(int argc, char **argv) {
   utility::umt_optstruct_t options;
   umt_getoptions(&options, argc, argv);
@@ -198,7 +294,7 @@ int main(int argc, char **argv) {
   size_t size_x; size_t size_y; size_t size_k;
   pixel_type *image_data;
   map_fits(options.filename, &size_x, &size_y, &size_k, &image_data);
-  cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k));
+  cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k), read_exposuretime(size_k), read_psf(size_k));
 
   const std::size_t num_random_vector = get_num_vectors();
 
@@ -209,6 +305,8 @@ int main(int argc, char **argv) {
             << "\nvectors/sec = " << static_cast<double>(num_random_vector) / result.first << std::endl;
 
   print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
+
+  write_tocsv(result.second);
 
   utility::umap_fits_file::PerFits_free_cube(image_data);
 

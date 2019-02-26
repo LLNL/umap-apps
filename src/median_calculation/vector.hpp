@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <math.h>
 
 #include "utility.hpp"
 #include "cube.hpp"
@@ -102,14 +103,9 @@ class cube_iterator_with_vector {
 
   // To support
   // value_type val = *iterator
+  // Note: it is possible for this to return nan and functions dependent on this should take necessary precautions
   value_type operator*() const {
-    const auto xy = current_xy_position();
-    assert(!m_cube.out_of_range(xy.first, xy.second, m_current_k_pos));
-
-    const pixel_type value = m_cube.get_pixel_value(xy.first, xy.second, m_current_k_pos);
-    assert(!is_nan(value));
-
-    return value;
+    return get_pixel_value_with_streak();
   }
 
   // To support
@@ -127,6 +123,47 @@ class cube_iterator_with_vector {
     const double time_offset = m_cube.timestamp(m_current_k_pos) - m_cube.timestamp(0);
     return m_vector.position(time_offset);
   }
+  
+  pixel_type get_pixel_value_with_streak() const {
+    const auto xy = current_xy_position();
+    ssize_t x_pos = xy.first;
+    ssize_t y_pos = xy.second;
+
+    double exp_time = m_cube.exposuretime(m_current_k_pos);
+    size_t psf_width = m_cube.psf(m_current_k_pos);
+
+    size_t streak_length = sqrt(pow((exp_time / m_vector.x_slope), 2) + pow((exp_time / m_vector.y_slope), 2));
+    double phi = atan2(m_vector.x_slope,m_vector.y_slope); ///simplified from (streak_length_y/streak_length_x)
+
+    pixel_type result = 0;
+
+    for (size_t x_offset = floor(-streak_length/2 -psf_width); x_offset <= ceil(streak_length/2 + psf_width); ++x_offset) {
+      for (size_t y_offset = floor(-psf_width); y_offset <= ceil(psf_width); ++y_offset) {
+        if (m_cube.out_of_range(x_pos + x_offset, y_pos + y_offset, m_current_k_pos)) continue;
+
+        size_t x_pixel = std::round(x_pos + cos(phi)*x_offset - sin(phi)*y_offset);
+        size_t y_pixel = std::round(y_pos + sin(phi)*x_offset + cos(phi)*y_offset);
+        
+		const pixel_type value = m_cube.get_pixel_value(x_pixel, y_pixel, m_current_k_pos);
+        if (is_nan(value)) continue;
+        
+		///Following code is for a weighted sum using convolution of gaussian with streak
+        pixel_type psfwidth_sq = (pixel_type) psf_width*psf_width;
+        pixel_type coef = (1/(2*streak_length))*(2*psfwidth_sq*M_PI/sqrt(2*M_PI*psfwidth_sq));
+        pixel_type xarg_denom = 2*sqrt(2*psfwidth_sq);
+        pixel_type xarg1 = (streak_length - 2*x_offset)/xarg_denom;
+        pixel_type xarg2 = (streak_length + 2*x_offset)/xarg_denom;
+        pixel_type xterm = erf(xarg1) + erf(xarg2);
+        pixel_type yterm = exp(-0.5 *y_offset*y_offset/psfwidth_sq);
+        pixel_type weight = coef*xterm*yterm;
+
+        result += value*weight;
+    }
+  }
+
+  if (result == 0) result = std::numeric_limits<pixel_type>::quiet_NaN(); // if all streak pixels are nan, return nan
+  return result;
+}
 
   // Find the next non-NaN value
   void move_to_next_valid_pixel() {
@@ -136,9 +173,14 @@ class cube_iterator_with_vector {
     for (; m_current_k_pos < size_k; ++m_current_k_pos) {
       const auto xy = current_xy_position();
 
-      if (m_cube.out_of_range(xy.first, xy.second, m_current_k_pos)) continue;
+      if (!m_cube.out_of_range(xy.first, xy.second, m_current_k_pos)) return;
 
-      if (!is_nan(m_cube.get_pixel_value(xy.first, xy.second, m_current_k_pos))) return;
+	  //We're no longer skipping nan values here, but instead after the *() operator.
+	  //The exact places where this is done are in the vector_sum and torben functions.
+	  //This allows us to pull potentially relevant info from around the exact pixel 
+	  //that a vector intersects if the exact pixel is nan.
+
+      //if (!is_nan(m_cube.get_pixel_value(xy.first, xy.second, m_current_k_pos))) return;
     }
 
     m_current_k_pos = size_k; // Prevent the case, m_current_k_pos > size_k.
@@ -155,34 +197,3 @@ class cube_iterator_with_vector {
 } // namespace median
 
 #endif //UMAP_APPS_MEDIAN_CALCULATION_VECTOR_HPP
-
-// -------------------------------------------------------------------------------- //
-// Example of a function that returns pixel value by a window.
-// To use this function, just call it in '*' operator
-// value_type operator*() const {
-//   return get_pixel_value_with_window()
-// }
-// -------------------------------------------------------------------------------- //
-/*
-pixel_type get_pixel_value_with_window(const size_t window_size_x, const size_t window_size_y) const {
-  const auto xy = current_xy_position();
-  ssize_t x = xy.first - window_size_x / 2;
-  ssize_t y = xy.second - window_size_y / 2;
-
-  pixel_type result = 0;
-  size_t num_valid_values = 0;
-  for (size_t offset_y = 0; offset_y < window_size_y; ++offset_y) {
-    for (size_t offset_x = 0; offset_x < window_size_x; ++offset_x) {
-      if (m_cube.out_of_range(x + offset_x, y + offset_y, m_current_k_pos)) continue;
-
-      const pixel_type value = m_cube.get_pixel_value(x + offset_x, y + offset_y, m_current_k_pos);
-      if (is_nan(value)) continue;
-
-      result += value;
-      ++num_valid_values;
-    }
-  }
-
-  return (double)result / num_valid_values;
-}
-*/

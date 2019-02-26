@@ -41,16 +41,22 @@ class cube {
   cube() = default;
 
   cube(const size_t size_x,
-       const size_t size_y,
-       const size_t size_k,
-       pixel_type *const image_data,
-       std::vector<double> timestamp_list)
-      : m_size_x(size_x),
-        m_size_y(size_y),
-        m_size_k(size_k),
-        m_image_data(image_data),
-        m_timestamp_list(std::move(timestamp_list)) {
+	  const size_t size_y,
+	  const size_t size_k,
+	  pixel_type *const image_data,
+	  std::vector<double> timestamp_list,
+	  std::vector<double> exposuretime_list,
+	  std::vector<double> psf_list)
+	  : m_size_x(size_x),
+	  m_size_y(size_y),
+	  m_size_k(size_k),
+	  m_image_data(image_data),
+	  m_timestamp_list(std::move(timestamp_list)),
+	  m_exposuretime_list(std::move(exposuretime_list)),
+	  m_psf_list(std::move(psf_list)) {
     assert(m_size_k <= m_timestamp_list.size());
+    assert(m_size_k <= m_exposuretime_list.size());
+    assert(m_size_k <= m_psf_list.size());
   }
 
   ~cube() = default; // Default destructor
@@ -98,7 +104,17 @@ class cube {
     assert(k < m_timestamp_list.size());
     return m_timestamp_list[k];
   }
-
+  
+  double exposuretime(const size_t k) const {
+    assert(k < m_exposuretime_list.size());
+    return m_exposuretime_list[k];
+  }
+  
+  double psf(const size_t k) const {
+    assert(k < m_psf_list.size());
+    return m_psf_list[k];
+  }
+    
  private:
   /// -------------------------------------------------------------------------------- ///
   /// Private methods
@@ -147,6 +163,8 @@ class cube {
   pixel_type *const m_image_data;
 
   std::vector<double> m_timestamp_list; // an array of the timestamp of each frame.
+  std::vector<double> m_exposuretime_list; // an array of the exposure time of each image
+  std::vector<double> m_psf_list; //an array of the psf fwhm of each image
 };
 
 } // namespace median

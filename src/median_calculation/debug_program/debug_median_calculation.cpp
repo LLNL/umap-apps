@@ -100,10 +100,15 @@ int main() {
   pixel_type *data = map_data(size_x, size_y, size_k, file_name);
   init_data(size_x, size_y, size_k, data);
 
-  std::vector<double> timestamp_list(size_k);
-  for (size_t i = 0; i < size_k; ++i) timestamp_list[i] = i * 1.0;
+  std::vector<double> timestamp_list(size_k), exposuretime_list(size_k), psf_list(size_k);
+  for (size_t i = 0; i < size_k; ++i)
+  { 
+	timestamp_list[i] = i * 1.0;
+	exposuretime_list[i] = 40.0;
+	psf_list[i] = 2.0;
+  }
 
-  cube<pixel_type> cube(size_x, size_y, size_k, data, std::move(timestamp_list));
+  cube<pixel_type> cube(size_x, size_y, size_k, data, std::move(timestamp_list), std::move(exposuretime_list), std::move(psf_list));
 
   calculate_median(cube, vector_xy{1, 0, 1, 0});
 
