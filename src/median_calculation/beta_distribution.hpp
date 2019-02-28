@@ -26,11 +26,15 @@ class beta_distribution {
       : m_x_gamma(a, 1.0),
         m_y_gamma(b, 1.0) {}
 
+  // () operator written to return two values for syntax help in the run_random_vector code (not often used)
   template <typename rnd_engine>
   double operator()(rnd_engine &engine) {
-    double x = m_x_gamma(engine);
-    double y = m_y_gamma(engine);
-    return x / (x + y);
+    double x1 = m_x_gamma(engine);
+    double y1 = m_y_gamma(engine);
+	double x2 = m_x_gamma(engine);
+	double y2 = m_x_gamma(engine);
+	std::vector<double> result = {(x1 / (x1 + y1)), (x2 / (x2 + y2))};
+	return result;
   }
 
  private:

@@ -103,9 +103,9 @@ class cube_iterator_with_vector {
 
   // To support
   // value_type val = *iterator
-  // Note: it is possible for this to return nan and functions dependent on this should take necessary precautions
+  // NOTE: it is possible for this to return nan and functions dependent on this should take necessary precautions
   value_type operator*() const {
-    return get_pixel_value_with_streak();
+    return std::get<0>(get_pixel_value_with_streak());
   }
 
   // To support
@@ -114,6 +114,17 @@ class cube_iterator_with_vector {
     move_to_next_valid_pixel();
     return (*this);
   }
+
+
+
+  // Function to pull image info relevant for calculating SNR:
+  // Returns: <streak sum value, number of pixels, exposure time>
+  std::tuple<pixel_type, int, double> snr_info() {
+	  double exposure_time = m_cube.exposuretime(m_current_k_pos);
+	  std::tuple<pixel_type, int> streak_info = get_pixel_value_with_streak();
+	  return std::tuple<std::get<0>(streak_info), std::get<1>(streak_info), exposure_time>;
+  }
+
 
  private:
   /// -------------------------------------------------------------------------------- ///
@@ -124,7 +135,10 @@ class cube_iterator_with_vector {
     return m_vector.position(time_offset);
   }
   
-  pixel_type get_pixel_value_with_streak() const {
+
+  // Function for calculating weighted sum over streak of vector+image intersection
+  // Also grabs number of valid pixels in streak
+  std::tuple<pixel_type, int> get_pixel_value_with_streak() const {
     const auto xy = current_xy_position();
     ssize_t x_pos = xy.first;
     ssize_t y_pos = xy.second;
@@ -136,9 +150,11 @@ class cube_iterator_with_vector {
     double phi = atan2(m_vector.x_slope,m_vector.y_slope); ///simplified from (streak_length_y/streak_length_x)
 
     pixel_type result = 0;
+	int num_pixels = 0;
 
-    for (size_t x_offset = floor(-streak_length/2 -psf_width); x_offset <= ceil(streak_length/2 + psf_width); ++x_offset) {
-      for (size_t y_offset = floor(-psf_width); y_offset <= ceil(psf_width); ++y_offset) {
+	// We optimize aperture size for maximum SNR to a rdius of 0.673*FWHM (see Masci 2008)
+    for (size_t x_offset = floor(-streak_length/2 -0.673*psf_width); x_offset <= ceil(streak_length/2 +0.673*psf_width); ++x_offset) {
+      for (size_t y_offset = floor(-0.673*psf_width); y_offset <= ceil(0.673*psf_width); ++y_offset) {
         if (m_cube.out_of_range(x_pos + x_offset, y_pos + y_offset, m_current_k_pos)) continue;
 
         size_t x_pixel = std::round(x_pos + cos(phi)*x_offset - sin(phi)*y_offset);
@@ -158,14 +174,14 @@ class cube_iterator_with_vector {
         pixel_type weight = coef*xterm*yterm;
 
         result += value*weight;
+		++num_pixels;
     }
   }
-
   if (result == 0) result = std::numeric_limits<pixel_type>::quiet_NaN(); // if all streak pixels are nan, return nan
-  return result;
+  return std::tuple<result,num_pixels>;
 }
 
-  // Find the next non-NaN value
+  // Find the next value
   void move_to_next_valid_pixel() {
     ++m_current_k_pos;
     const size_t size_k = std::get<2>(m_cube.size());
