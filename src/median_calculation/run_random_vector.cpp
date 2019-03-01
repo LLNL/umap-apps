@@ -222,10 +222,9 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 	// Generate a slope distribution from either a given file or a beta distribution
     
     const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
+	beta_distribution slope_distribution(3, 2);
     if (slope_filename != nullptr) 
         custom_distribution slope_distribution(slope_filename);
-    else
-        beta_distribution slope_distribution(3,2); 
     
 
     // Shoot random vectors using multiple threads
