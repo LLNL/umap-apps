@@ -120,9 +120,8 @@ class cube_iterator_with_vector {
   // Function to pull image info relevant for calculating SNR:
   // Returns: <streak sum value, number of pixels, exposure time>
   std::tuple<pixel_type, int, double> snr_info() {
-	  double exposure_time = m_cube.exposuretime(m_current_k_pos);
 	  std::tuple<pixel_type, int> streak_info = get_pixel_value_with_streak();
-	  return std::tuple<std::get<0>(streak_info), std::get<1>(streak_info), exposure_time>;
+	  return std::tuple<pixel_type, int, double> (std::get<0>(streak_info), std::get<1>(streak_info), m_cube.exposuretime(m_current_k_pos));
   }
 
 
@@ -178,7 +177,7 @@ class cube_iterator_with_vector {
     }
   }
   if (result == 0) result = std::numeric_limits<pixel_type>::quiet_NaN(); // if all streak pixels are nan, return nan
-  return std::tuple<result,num_pixels>;
+  return std::tuple<pixel_type, int> (result,num_pixels);
 }
 
   // Find the next value

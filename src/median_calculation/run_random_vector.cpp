@@ -160,7 +160,7 @@ std::tuple<double, typename iterator_type::value_type, int>
 	using value_type = typename iterator_type::value_type;
 
 	if (iterator_begin == iterator_end)
-		return 0;
+		return std::tuple<double, value_type, int> (0,0,0);
 
 	// DECAM info
 	double dark_noise = 0.417; // electrons per pixel per second
@@ -194,12 +194,10 @@ std::tuple<double, typename iterator_type::value_type, int>
 		
 	}
 
-	double SNR = total*sqrt(total_time)/sqrt(total + total_B + total_D + total_R)
+	double SNR = total_signal*sqrt(total_time)/sqrt(total_signal + total_B + total_D + total_R);
 
-	return std::tuple<SNR, total, frame_num>;
+	return std::tuple<double, value_type, int> (SNR, total_signal, frame_num);
 }
-
-
 
 
 std::pair<double, std::vector<std::tuple<vector_xy, double, double, int>>>
@@ -222,18 +220,13 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
     std::uniform_int_distribution<int> y_start_dist(0, std::get<1>(cube.size()) - 1);
 
 	// Generate a slope distribution from either a given file or a beta distribution
+    
     const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
-	if (slope_file_name != nullptr) {
-		std::ifstream ifs(slope_file_name);
-		if (!ifs.is_open()) {
-			std::cerr << "Cannot open " << slope_file_name << std::endl;
-			std::abort();
-		}
-		custom_distribution slope_distribution(slope_filename);
-	} else {
-		// If a custom distribution is not given, use a beta distribution
-		beta_distribution slope_distribution(3, 2);
-	}
+    if (slope_filename != nullptr) 
+        custom_distribution slope_distribution(slope_filename);
+    else
+        beta_distribution slope_distribution(3,2); 
+    
 
     // Shoot random vectors using multiple threads
 #ifdef _OPENMP
@@ -255,8 +248,8 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 
 	  // vector info stored as [VECTOR_XY, SNR, SUM, NUMBER OF FRAMES]
       const auto start = utility::elapsed_time_sec();
-	  std::tuple<double, double, int> vector_info = vector_info(begin, end);
-	  result[i] = std::make_tuple(current_vector,std::get<0>(vector_info),std::get<1>(vector_info),std::get<2>(vector_info));
+	  std::tuple<double, double, int> v_info = vector_info(begin, end);
+	  result[i] = std::make_tuple(current_vector,std::get<0>(v_info),std::get<1>(v_info),std::get<2>(v_info));
       total_execution_time += utility::elapsed_time_sec(start);
     }
   }
@@ -309,7 +302,7 @@ void print_top_median(const cube<pixel_type> &cube,
 void write_tocsv(std::vector<std::tuple<vector_xy, double, double, int>> &result) {
 	std::ofstream out("vector_output.csv");
 
-	out << 'ID,X_INTERCEPT,Y_INTERCEPT,X_SLOPE,Y_SLOPE,SNR,SUM,NUMBER_OF_FRAMES_HIT\n';
+	out << "ID,X_INTERCEPT,Y_INTERCEPT,X_SLOPE,Y_SLOPE,SNR,SUM,NUMBER_OF_FRAMES_HIT\n";
 
 	long long id = 0;
 	for (auto& row : result) {
