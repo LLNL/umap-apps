@@ -35,6 +35,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "cube.hpp"
 #include "beta_distribution.hpp"
 #include "custom_distribution.hpp"
+#include "distribution_test.hpp"
 
 using namespace median;
 
@@ -222,14 +223,13 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
     std::uniform_int_distribution<int> x_start_dist(0, std::get<0>(cube.size()) - 1);
     std::uniform_int_distribution<int> y_start_dist(0, std::get<1>(cube.size()) - 1);
 
-	// Generate a slope distribution from either a given file or a beta distribution
+	// Generate a slope distribution from a given file or a beta distribution if no file given
     
     const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
-    //beta_distribution slope_distribution(3, 2);
-    //if (slope_filename != nullptr) { 
-    //    std::cout << "~custom~" << std::endl;
-    custom_distribution slope_distribution(slope_filename);
-    //}
+
+	// Function takes both potential filename and potential (optional) a/b arguments for beta distribution
+    slope_distribution slope_dist(slope_filename,3,2);
+
     
     // Shoot random vectors using multiple threads
 #ifdef _OPENMP
@@ -237,7 +237,7 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 #endif
     for (int i = 0; i < num_random_vector; ++i) {
       
-      std::vector<double> slopes = slope_distribution(rnd_engine);
+      std::vector<double> slopes = slope_dist(rnd_engine);
       double x_slope = slopes[0];
       double y_slope = slopes[1];
       double x_intercept = x_start_dist(rnd_engine);
