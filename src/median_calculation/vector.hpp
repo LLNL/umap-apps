@@ -104,7 +104,7 @@ class cube_iterator_with_vector {
   // To support
   // value_type val = *iterator
   // NOTE: it is possible for this to return nan and functions dependent on this should take necessary precautions
-  value_type operator*() const {
+  pixel_type operator*() const {
     return std::get<0>(get_pixel_value_with_streak());
   }
 
@@ -143,42 +143,47 @@ class cube_iterator_with_vector {
     ssize_t y_pos = xy.second;
 
     double exp_time = m_cube.exposuretime(m_current_k_pos);
-    size_t psf_width = m_cube.psf(m_current_k_pos);
+    double psf_width = m_cube.psf(m_current_k_pos);
 
-    size_t streak_length = sqrt(pow((exp_time / m_vector.x_slope), 2) + pow((exp_time / m_vector.y_slope), 2));
-    double phi = atan2(m_vector.x_slope,m_vector.y_slope); ///simplified from (streak_length_y/streak_length_x)
+    double streak_length = exp_time*sqrt(pow((m_vector.x_slope), 2) + pow((m_vector.y_slope), 2));
+    double phi = atan2(m_vector.y_slope,m_vector.x_slope); ///simplified from (streak_length_y/streak_length_x)
 
     pixel_type result = 0;
-	int num_pixels = 0;
-
+    int num_pixels = 0;
+        	
 	// We optimize aperture size for maximum SNR to a rdius of 0.673*FWHM (see Masci 2008)
-    for (size_t x_offset = floor(-streak_length/2 -0.673*psf_width); x_offset <= ceil(streak_length/2 +0.673*psf_width); ++x_offset) {
-      for (size_t y_offset = floor(-0.673*psf_width); y_offset <= ceil(0.673*psf_width); ++y_offset) {
+    for (int x_offset = floor(-streak_length/2 -0.673*psf_width); x_offset <= ceil(streak_length/2 +0.673*psf_width); ++x_offset) {
+      for (int y_offset = floor(-0.673*psf_width); y_offset <= ceil(0.673*psf_width); ++y_offset) {
         if (m_cube.out_of_range(x_pos + x_offset, y_pos + y_offset, m_current_k_pos)) continue;
-
+        
         size_t x_pixel = std::round(x_pos + cos(phi)*x_offset - sin(phi)*y_offset);
         size_t y_pixel = std::round(y_pos + sin(phi)*x_offset + cos(phi)*y_offset);
         
-		const pixel_type value = m_cube.get_pixel_value(x_pixel, y_pixel, m_current_k_pos);
+	const pixel_type value = m_cube.get_pixel_value(x_pixel, y_pixel, m_current_k_pos);
         if (is_nan(value)) continue;
         
-		///Following code is for a weighted sum using convolution of gaussian with streak
-        pixel_type psfwidth_sq = (pixel_type) psf_width*psf_width;
-        pixel_type coef = (1/(2*streak_length))*(2*psfwidth_sq*M_PI/sqrt(2*M_PI*psfwidth_sq));
-        pixel_type xarg_denom = 2*sqrt(2*psfwidth_sq);
-        pixel_type xarg1 = (streak_length - 2*x_offset)/xarg_denom;
-        pixel_type xarg2 = (streak_length + 2*x_offset)/xarg_denom;
-        pixel_type xterm = erf(xarg1) + erf(xarg2);
-        pixel_type yterm = exp(-0.5 *y_offset*y_offset/psfwidth_sq);
-        pixel_type weight = coef*xterm*yterm;
-
+        double weight = sum_weight(psf_width, streak_length, x_offset, y_offset);
+        
         result += value*weight;
-		++num_pixels;
+        
+        ++num_pixels;
     }
   }
-  if (result == 0) result = std::numeric_limits<pixel_type>::quiet_NaN(); // if all streak pixels are nan, return nan
-  return std::tuple<pixel_type, int> (result,num_pixels);
+  return std::tuple<double, int> (result,num_pixels);
 }
+
+  // Function for calculating the weight for a weighted sum using a convolution of a gaussian with a line
+  double sum_weight(double psf_width, double streak_length, int x, int y) const {
+    double psfwidth_sq = psf_width*psf_width;
+    double coef = (1/(2*streak_length))*(2*psfwidth_sq*M_PI/sqrt(2*M_PI*psfwidth_sq));
+    double xarg_denom = 2*sqrt(2*psfwidth_sq);
+    double xarg1 = (streak_length - 2*x)/xarg_denom;
+    double xarg2 = (streak_length + 2*x)/xarg_denom;
+    double xterm = erf(xarg1) + erf(xarg2);
+    double yterm = exp(-0.5 *y*y/psfwidth_sq);
+    double result = coef*xterm*yterm;
+    return result;
+  }
 
   // Find the next value
   void move_to_next_valid_pixel() {

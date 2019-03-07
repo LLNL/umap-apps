@@ -143,7 +143,7 @@ std::vector<double> read_psf(const size_t size_k) {
   } else {
     // If a list of psfs is not given, assume that each psf is 1
     psf_list.resize(size_k);
-    for (size_t i = 0; i < size_k; ++i) psf_list[i] = 1.0;
+    for (size_t i = 0; i < size_k; ++i) psf_list[i] = 2.5;
   }
 
   return psf_list;
@@ -177,25 +177,28 @@ std::tuple<double, typename iterator_type::value_type, int>
 	for (auto iterator(iterator_begin); iterator != iterator_end; ++iterator) {
 		std::tuple<pixel_type, int, double> snr_info = iterator.snr_info();
 		const value_type value = std::get<0>(snr_info);
-		if (is_nan(value)) continue;
+		int num_pixels = std::get<1>(snr_info);
+		
+		if (num_pixels == 0) continue; // For when the vector hits nothing in an image
 
 		total_signal += value;
 		++frame_num;
 
 		// SNR calculation
-		double B = value / 3; // pull background noise from list???
-		int num_pixels = std::get<1>(snr_info);
+		double B = 10*dark_noise; // pull background noise from list???
 		double exp_time = std::get<2>(snr_info);
 
 		total_B += B * num_pixels;
-		total_R += num_pixels * pow(readout_noise, 2) / exp_time;
+		total_R += num_pixels * readout_noise*readout_noise / exp_time;
 		total_D += dark_noise * num_pixels;
 		total_time += exp_time;
 		
 	}
 
-	double SNR = total_signal*sqrt(total_time)/sqrt(total_signal + total_B + total_D + total_R);
-
+	double SNR = 0;
+	if (frame_num != 0)
+		SNR = total_signal*sqrt(total_time)/sqrt(total_signal + total_B + total_D + total_R);
+		
 	return std::tuple<double, value_type, int> (SNR, total_signal, frame_num);
 }
 
@@ -222,29 +225,29 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 	// Generate a slope distribution from either a given file or a beta distribution
     
     const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
-	beta_distribution slope_distribution(3, 2);
-    if (slope_filename != nullptr) 
-        custom_distribution slope_distribution(slope_filename);
+    //beta_distribution slope_distribution(3, 2);
+    //if (slope_filename != nullptr) { 
+    //    std::cout << "~custom~" << std::endl;
+    custom_distribution slope_distribution(slope_filename);
+    //}
     
-
     // Shoot random vectors using multiple threads
 #ifdef _OPENMP
 #pragma omp for
 #endif
     for (int i = 0; i < num_random_vector; ++i) {
       
-      const std::vector<double> slopes = slope_distribution();
-      const double x_slope = slopes[0];
-      const double y_slope = slopes[1];
-      
-      const double x_intercept = x_start_dist(rnd_engine);
-      const double y_intercept = y_start_dist(rnd_engine);
+      std::vector<double> slopes = slope_distribution(rnd_engine);
+      double x_slope = slopes[0];
+      double y_slope = slopes[1];
+      double x_intercept = x_start_dist(rnd_engine);
+      double y_intercept = y_start_dist(rnd_engine);
       
       vector_xy current_vector{x_slope, x_intercept, y_slope, y_intercept};
 
       cube_iterator_with_vector<pixel_type> begin(cube, current_vector, 0.0);
       cube_iterator_with_vector<pixel_type> end(cube, current_vector);
-
+      	
 	  // vector info stored as [VECTOR_XY, SNR, SUM, NUMBER OF FRAMES]
       const auto start = utility::elapsed_time_sec();
 	  std::tuple<double, double, int> v_info = vector_info(begin, end);
@@ -303,7 +306,7 @@ void write_tocsv(std::vector<std::tuple<vector_xy, double, double, int>> &result
 
 	out << "ID,X_INTERCEPT,Y_INTERCEPT,X_SLOPE,Y_SLOPE,SNR,SUM,NUMBER_OF_FRAMES_HIT\n";
 
-	long long id = 0;
+	long long id = 1;
 	for (auto& row : result) {
 		
 		out << id << ',';
@@ -331,11 +334,11 @@ int main(int argc, char **argv) {
   pixel_type *image_data;
   map_fits(options.filename, &size_x, &size_y, &size_k, &image_data);
   cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k), read_exposuretime(size_k), read_psf(size_k));
-
+  
   const std::size_t num_random_vector = get_num_vectors();
 
   auto result = shoot_vector(cube, num_random_vector);
-
+  
   std::cout << "#of vectors = " << num_random_vector
             << "\nexecution time (sec) = " << result.first
             << "\nvectors/sec = " << static_cast<double>(num_random_vector) / result.first << std::endl;
