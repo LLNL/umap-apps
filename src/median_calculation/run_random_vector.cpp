@@ -30,12 +30,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "../utility/commandline.hpp"
 #include "../utility/umap_fits_file.hpp"
 #include "../utility/time.hpp"
-#include "torben.hpp"
 #include "utility.hpp"
 #include "vector.hpp"
 #include "cube.hpp"
 #include "beta_distribution.hpp"
 #include "custom_distribution.hpp"
+#include "distribution_test.hpp"
 
 using namespace median;
 
@@ -144,7 +144,7 @@ std::vector<double> read_psf(const size_t size_k) {
   } else {
     // If a list of psfs is not given, assume that each psf is 1
     psf_list.resize(size_k);
-    for (size_t i = 0; i < size_k; ++i) psf_list[i] = 1.0;
+    for (size_t i = 0; i < size_k; ++i) psf_list[i] = 2.5;
   }
 
   return psf_list;
@@ -153,31 +153,57 @@ std::vector<double> read_psf(const size_t size_k) {
 
 
 	
-// Function to sum across the vector, should skip nan values
+// Function to calculate relevant information about a given vector
+// Returns: <SNR, weighted sum, number of frames intersected>
 template <typename iterator_type>
-typename iterator_type::value_type
-	vector_sum(iterator_type iterator_begin, iterator_type iterator_end) {
+std::tuple<double, typename iterator_type::value_type, int>
+	vector_info(iterator_type iterator_begin, iterator_type iterator_end) {
 	using value_type = typename iterator_type::value_type;
 
 	if (iterator_begin == iterator_end)
-		return 0;
+		return std::tuple<double, value_type, int> (0,0,0);
 
-	pixel_type total = 0;
+	// DECAM info
+	double dark_noise = 0.417; // electrons per pixel per second
+	double readout_noise = 7; // electrons
+
+	value_type total_signal = 0;
+	double total_B = 0;
+	double total_R = 0;
+	double total_D = 0;
+	int frame_num = 0;
+
 	for (auto iterator(iterator_begin); iterator != iterator_end; ++iterator) {
-		const value_type value = *iterator;
-		if (is_nan(value)) continue;
-		total += value;
-	}
+		std::tuple<pixel_type, int, double> snr_info = iterator.snr_info();
+		const value_type value = std::get<0>(snr_info);
+		int num_pixels = std::get<1>(snr_info);
+		
+		if (num_pixels == 0) continue; // For when the vector hits nothing in an image
 
-	return total;
+		total_signal += value;
+		++frame_num;
+
+		// SNR calculation
+		double B = 10*dark_noise; // pull background noise from list???
+		double exp_time = std::get<2>(snr_info);
+
+		total_B += B * num_pixels * exp_time;
+		total_R += num_pixels * readout_noise*readout_noise;
+		total_D += dark_noise * num_pixels * exp_time;
+	}	
+
+	double SNR = 0;
+	if ((total_signal > 0) && (frame_num != 0))
+		SNR = total_signal/sqrt(total_signal + total_B + total_D + total_R);
+		
+	return std::tuple<double, value_type, int> (SNR, total_signal, frame_num);
 }
 
 
-
-std::pair<double, std::vector<std::tuple<pixel_type, pixel_type, vector_xy>>>
+std::pair<double, std::vector<std::tuple<vector_xy, double, double, int>>>
 shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
-  std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> result(num_random_vector);
+  std::vector<std::tuple<vector_xy, double, double, int>> result(num_random_vector);
 
   double total_execution_time = 0.0;
 
@@ -192,32 +218,36 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 #endif
     std::uniform_int_distribution<int> x_start_dist(0, std::get<0>(cube.size()) - 1);
     std::uniform_int_distribution<int> y_start_dist(0, std::get<1>(cube.size()) - 1);
-    const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
-    custom_distribution slope_distribution(slope_filename);
-    std::uniform_int_distribution<int> plus_or_minus(0, 1);
 
+	// Generate a slope distribution from a given file or a beta distribution if no file given
+    
+    const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
+
+	// Function takes both potential filename and potential (optional) a/b arguments for beta distribution
+    slope_distribution slope_dist(slope_filename,3,2);
+
+    
     // Shoot random vectors using multiple threads
 #ifdef _OPENMP
 #pragma omp for
 #endif
     for (int i = 0; i < num_random_vector; ++i) {
       
-      const std::vector<double> slopes = slope_distribution();
-      const double x_slope = slopes[0];
-      const double y_slope = slopes[1];
-      
-      const double x_intercept = x_start_dist(rnd_engine);
-      const double y_intercept = y_start_dist(rnd_engine);
+      std::vector<double> slopes = slope_dist(rnd_engine);
+      double x_slope = slopes[0];
+      double y_slope = slopes[1];
+      double x_intercept = x_start_dist(rnd_engine);
+      double y_intercept = y_start_dist(rnd_engine);
       
       vector_xy current_vector{x_slope, x_intercept, y_slope, y_intercept};
 
       cube_iterator_with_vector<pixel_type> begin(cube, current_vector, 0.0);
       cube_iterator_with_vector<pixel_type> end(cube, current_vector);
-
-      // median calculation using Torben algorithm
-	  // vector info stored as [MEDIAN, SUM, VECTOR]
+      	
+	  // vector info stored as [VECTOR_XY, SNR, SUM, NUMBER OF FRAMES]
       const auto start = utility::elapsed_time_sec();
-	  result[i] = std::make_tuple(torben(begin,end),vector_sum(begin,end),current_vector);
+	  std::tuple<double, double, int> v_info = vector_info(begin, end);
+	  result[i] = std::make_tuple(current_vector,std::get<0>(v_info),std::get<1>(v_info),std::get<2>(v_info));
       total_execution_time += utility::elapsed_time_sec(start);
     }
   }
@@ -225,6 +255,7 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
   return std::make_pair(total_execution_time, result);
 }
 
+/*
 void print_top_median(const cube<pixel_type> &cube,
                       const size_t num_top,
                       std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> &result) {
@@ -262,22 +293,26 @@ void print_top_median(const cube<pixel_type> &cube,
     std::cout << std::endl;
   }
 }
+*/
 
 // Function to write results to a csv file in the form:
-// ID | MEDIAN | SUM | X_START | Y_START | X_SLOPE | Y_SLOPE
-void write_tocsv(std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> &result) {
+// ID | X_INTERCEPT | Y_INTERCEPT | X_SLOPE | Y_SLOPE | SNR | SUM | NUMBER OF FRAMES HIT
+void write_tocsv(std::vector<std::tuple<vector_xy, double, double, int>> &result) {
 	std::ofstream out("vector_output.csv");
 
-	int id = 0;
+	out << "ID,X_INTERCEPT,Y_INTERCEPT,X_SLOPE,Y_SLOPE,SNR,SUM,NUMBER_OF_FRAMES_HIT\n";
+
+	long long id = 1;
 	for (auto& row : result) {
 		
 		out << id << ',';
-		out << std::get<0>(row) << ',';
+		out << std::get<0>(row).x_intercept << ',';
+		out << std::get<0>(row).y_intercept << ',';
+		out << std::get<0>(row).x_slope << ',';
+		out << std::get<0>(row).y_slope << ',';
 		out << std::get<1>(row) << ',';
-		out << std::get<2>(row).x_intercept << ',';
-		out << std::get<2>(row).y_intercept << ',';
-		out << std::get<2>(row).x_slope << ',';
-		out << std::get<2>(row).y_slope << ',';
+		out << std::get<2>(row) << ',';
+		out << std::get<3>(row) << ',';
 		out << '\n';
 		++id;
 	}
@@ -295,16 +330,16 @@ int main(int argc, char **argv) {
   pixel_type *image_data;
   map_fits(options.filename, &size_x, &size_y, &size_k, &image_data);
   cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k), read_exposuretime(size_k), read_psf(size_k));
-
+  
   const std::size_t num_random_vector = get_num_vectors();
 
   auto result = shoot_vector(cube, num_random_vector);
-
+  
   std::cout << "#of vectors = " << num_random_vector
             << "\nexecution time (sec) = " << result.first
             << "\nvectors/sec = " << static_cast<double>(num_random_vector) / result.first << std::endl;
 
-  print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
+  //print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
 
   write_tocsv(result.second);
 
