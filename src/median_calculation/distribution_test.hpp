@@ -13,8 +13,8 @@ Public License along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
-#ifndef UMAP_APPS_MEDIAN_CALCULATION_CUSTOM_DISTRIBUTION_HPP
-#define UMAP_APPS_MEDIAN_CALCULATION_CUSTOM_DISTRIBUTION_HPP
+#ifndef UMAP_APPS_MEDIAN_CALCULATION_DISTRIBUTION_TEST_HPP
+#define UMAP_APPS_MEDIAN_CALCULATION_DISTRIBUTION_TEST_HPP
 
 #include <iostream>
 #include <fstream>
@@ -29,17 +29,15 @@ namespace median {
 
 class slope_distribution {
  public:
-  slope_distribution(const std::string &pdf_filename, double a = 3, double b = 2)
-  {
-	  if (slope_filename != nullptr) {
-		  load_custom_file(slope_filename);
+  slope_distribution(const char *pdf_filename, double a = 3, double b = 2)
+  : m_x_gamma(a, 1.0),
+    m_y_gamma(b, 1.0) {
+	  if (pdf_filename != nullptr) {
+		  load_custom_file(pdf_filename);
 		  beta = false;
 	  }
-	  else {
-		  load_beta(a, b);
-		  beta = true;
-	  }
-  }	
+  }
+  	
 
 
 
@@ -58,10 +56,10 @@ class slope_distribution {
   double para_minBound, perp_minBound, para_maxBound, perp_maxBound;
   std::gamma_distribution<> m_x_gamma;
   std::gamma_distribution<> m_y_gamma;
-  bool beta;
+  bool beta = true;
   
   // Function for loading in custom probability distribution function for sampling slopes
-  void load_custom_file(pdf_filename) {
+  void load_custom_file(const std::string pdf_filename) {
 	//probability density function should come from file provided via DECam_vectors.py
 	//should be perp_bins,perp_vals,para_bins,para_vals
 	
@@ -103,11 +101,6 @@ class slope_distribution {
 	perp_cdf = gen_cdf(perp_pdf,nbins);
   }
 
-  // Function to generate beta distribution for sampling slopes
-  void load_beta(double a, double b) {
-	  m_x_gamma(a, 1.0);
-	  m_y_gamma(b, 1.0);
-  }
 
   // Function to sample from custom distribution
   template <typename rnd_engine>
@@ -175,4 +168,4 @@ class slope_distribution {
 	
 } // namespace median
 
-#endif //UMAP_APPS_MEDIAN_CALCULATION_CUSTOM_DISTRIBUTION_HPP
+#endif //UMAP_APPS_MEDIAN_CALCULATION_DISTRIBUTION_TEST_HPP

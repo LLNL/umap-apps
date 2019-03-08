@@ -168,11 +168,9 @@ std::tuple<double, typename iterator_type::value_type, int>
 	double readout_noise = 7; // electrons
 
 	value_type total_signal = 0;
-	double total_exposure = 0;
 	double total_B = 0;
 	double total_R = 0;
 	double total_D = 0;
-	double total_time = 0;
 	int frame_num = 0;
 
 	for (auto iterator(iterator_begin); iterator != iterator_end; ++iterator) {
@@ -189,16 +187,14 @@ std::tuple<double, typename iterator_type::value_type, int>
 		double B = 10*dark_noise; // pull background noise from list???
 		double exp_time = std::get<2>(snr_info);
 
-		total_B += B * num_pixels;
-		total_R += num_pixels * readout_noise*readout_noise / exp_time;
-		total_D += dark_noise * num_pixels;
-		total_time += exp_time;
-		
-	}
+		total_B += B * num_pixels * exp_time;
+		total_R += num_pixels * readout_noise*readout_noise;
+		total_D += dark_noise * num_pixels * exp_time;
+	}	
 
 	double SNR = 0;
-	if (frame_num != 0)
-		SNR = total_signal*sqrt(total_time)/sqrt(total_signal + total_B + total_D + total_R);
+	if ((total_signal > 0) && (frame_num != 0))
+		SNR = total_signal/sqrt(total_signal + total_B + total_D + total_R);
 		
 	return std::tuple<double, value_type, int> (SNR, total_signal, frame_num);
 }
