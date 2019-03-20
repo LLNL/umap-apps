@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include "utility.hpp"
 
-#define MEDIAN_CALCULATION_COLUMN_MAJOR 1
+#define MEDIAN_CALCULATION_ROW_MAJOR 1
 #define MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE 0
 
 namespace median {
@@ -141,7 +141,7 @@ class cube {
       return -1;
     }
 
-#if MEDIAN_CALCULATION_COLUMN_MAJOR
+#if MEDIAN_CALCULATION_ROW_MAJOR
     const ssize_t frame_index = x + y * m_size_x;
 #else
     const ssize_t frame_index = x * m_size_y + y;
