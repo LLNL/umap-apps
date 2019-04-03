@@ -33,9 +33,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "utility.hpp"
 #include "vector.hpp"
 #include "cube.hpp"
-#include "beta_distribution.hpp"
-#include "custom_distribution.hpp"
-#include "distribution_test.hpp"
+#include "velocity_distribution.hpp"
 
 using namespace median;
 
@@ -72,32 +70,6 @@ std::size_t get_num_vectors() {
   return num_random_vector;
 }
 
-std::vector<double> read_timestamp(const size_t size_k) {
-  std::vector<double> timestamp_list;
-
-  const char *timestamp_file_name = std::getenv("TIMESTAMP_FILE");
-  if (timestamp_file_name != nullptr) {
-    std::ifstream ifs(timestamp_file_name);
-    if (!ifs.is_open()) {
-      std::cerr << "Cannot open " << timestamp_file_name << std::endl;
-      std::abort();
-    }
-    for (double timestamp; ifs >> timestamp;) {
-      timestamp_list.emplace_back(timestamp);
-    }
-    if (timestamp_list.size() != size_k) {
-      std::cerr << "#of lines in " << timestamp_file_name << " is not the same as #of fits files" << std::endl;
-      std::abort();
-    }
-  } else {
-    // If a list of timestamps is not given, assume that the difference between two frames is 1.0
-    timestamp_list.resize(size_k);
-    for (size_t i = 0; i < size_k; ++i) timestamp_list[i] = i * 1.0;
-  }
-
-  return timestamp_list;
-}
-
 std::vector<double> read_exposuretime(const size_t size_k) {
   std::vector<double> exposuretime_list;
 
@@ -124,30 +96,71 @@ std::vector<double> read_exposuretime(const size_t size_k) {
   return exposuretime_list;
 }
 
-std::vector<double> read_psf(const size_t size_k) {
-  std::vector<double> psf_list;
+// Function to read data info from a csv file
+// Reads timestamp, psf fwhm, (ra/dec), and background sky noise 
+std::tuple<std::vector<unsigned long>, std::vector<double>, std::vector<std::vector<double>>,std::vector<double>> read_list_csv(const size_t size_k) {
+	std::vector<double> psf_list;
+	std::vector<unsigned long> timestamp_list;
+	std::vector<std::vector<double>> ra_dec_list;
+	std::vector<double> noise_list;
 
-  const char *psf_file_name = std::getenv("PSF_FILE");
-  if (psf_file_name != nullptr) {
-    std::ifstream ifs(psf_file_name);
-    if (!ifs.is_open()) {
-      std::cerr << "Cannot open " << psf_file_name << std::endl;
-      std::abort();
-    }
-    for (double psf; ifs >> psf;) {
-      psf_list.emplace_back(psf);
-    }
-    if (psf_list.size() != size_k) {
-      std::cerr << "#of lines in " << psf_file_name << " is not the same as #of fits files" << std::endl;
-      std::abort();
-    }
-  } else {
-    // If a list of psfs is not given, assume that each psf is 1
-    psf_list.resize(size_k);
-    for (size_t i = 0; i < size_k; ++i) psf_list[i] = 2.5;
-  }
+	const char *list_file_name = std::getenv("DATA_LIST_FILE");
+	if (list_file_name != nullptr) {
+		std::ifstream ifs(list_file_name);
+		
+		if (!ifs.is_open()) {
+			std::cerr << "Cannot open " << list_file_name << std::endl;
+			std::abort();
+		}
 
-  return psf_list;
+		std::string line;
+		std::getline(ifs, line); //skip first row of header info
+
+		int check = 0;
+		double psf, mjd, ra, dec, noise;
+		char vala, valb, valc, vald, vale;
+		std::string frame;
+		double mjd_start = 0;
+
+		while (std::getline(ifs, line))
+		{
+			std::istringstream iss{ line };
+			
+			std::getline(iss,frame,',');
+			do {
+				
+				if (iss >> psf >> valb >> mjd >> valc >> ra >> vald >> dec >> vale >> noise)
+				{
+					
+					if (check == 0)
+						mjd_start = mjd;
+					unsigned long time = std::round((mjd - mjd_start) * 24 * 60 * 60 * 100); // Hundreths of a second
+					std::vector<double> ra_dec = {ra, dec};
+					
+					if (psf == 0) // For nan rows we set values to the previous row
+					{
+						time =  timestamp_list[(check - 1)];
+						psf = psf_list[(check - 1)];
+						ra_dec = ra_dec_list[(check - 1)];
+						noise = noise_list[(check - 1)];
+					}
+					
+					timestamp_list.push_back(time);
+					psf_list.push_back(psf);
+					ra_dec_list.push_back(ra_dec);
+					noise_list.push_back(noise);
+					++check;
+				}
+			} while (!iss.eof());
+		}
+		
+		if (psf_list.size() != size_k) {
+			std::cerr << "#of lines in " << list_file_name << " is not the same as #of fits files" << std::endl;
+			std::abort();
+		}
+	}
+	
+	return std::make_tuple(timestamp_list, psf_list, ra_dec_list, noise_list);
 }
 
 
@@ -174,7 +187,7 @@ std::tuple<double, typename iterator_type::value_type, int>
 	int frame_num = 0;
 
 	for (auto iterator(iterator_begin); iterator != iterator_end; ++iterator) {
-		std::tuple<pixel_type, int, double> snr_info = iterator.snr_info();
+		std::tuple<pixel_type, int, double, double> snr_info = iterator.snr_info();
 		const value_type value = std::get<0>(snr_info);
 		int num_pixels = std::get<1>(snr_info);
 		
@@ -184,7 +197,7 @@ std::tuple<double, typename iterator_type::value_type, int>
 		++frame_num;
 
 		// SNR calculation
-		double B = 10*dark_noise; // pull background noise from list???
+		double B = std::get<3>(snr_info); // pull background noise from list
 		double exp_time = std::get<2>(snr_info);
 
 		total_B += B * num_pixels * exp_time;
@@ -223,8 +236,8 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
     
     const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
 
-	// Function takes both potential filename and potential (optional) a/b arguments for beta distribution
-    slope_distribution slope_dist(slope_filename,3,2);
+	// Function takes both potential filename, (optional) a/b arguments for beta distribution, and pixel scale
+    slope_distribution slope_dist(slope_filename,3,2,0.26);
 
     
     // Shoot random vectors using multiple threads
@@ -233,12 +246,14 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
 #endif
     for (int i = 0; i < num_random_vector; ++i) {
       
-      std::vector<double> slopes = slope_dist(rnd_engine);
-      double x_slope = slopes[0];
-      double y_slope = slopes[1];
       double x_intercept = x_start_dist(rnd_engine);
       double y_intercept = y_start_dist(rnd_engine);
       
+	  // We use an ra/dec benchmark to convert our sampled slope from ecliptic to equatorial coordinates
+      std::vector<double> slopes = slope_dist(rnd_engine,cube.ra_dec(0)[0],cube.ra_dec(0)[1]);
+      double x_slope = slopes[0];
+      double y_slope = slopes[1];
+            
       vector_xy current_vector{x_slope, x_intercept, y_slope, y_intercept};
 
       cube_iterator_with_vector<pixel_type> begin(cube, current_vector, 0.0);
@@ -255,45 +270,6 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
   return std::make_pair(total_execution_time, result);
 }
 
-/*
-void print_top_median(const cube<pixel_type> &cube,
-                      const size_t num_top,
-                      std::vector<std::tuple<pixel_type, pixel_type, vector_xy>> &result) {
-
-  // Sort the results by the descending order of median value
-  std::sort(result.begin(), result.end(),
-            [](const std::tuple<pixel_type, pixel_type, vector_xy> &lhd,
-               const std::tuple<pixel_type, pixel_type, vector_xy> &rhd) {
-              return (std::get<0>(lhd) > std::get<0>(rhd));
-            });
-
-  // Print out the top 'num_top' median values and corresponding pixel values
-  std::cout << "Top " << num_top << " median and pixel values (skip NaN value)" << std::endl;
-  for (size_t i = 0; i < num_top; ++i) {
-    const pixel_type median = std::get<0>(result[i]);
-    const vector_xy vector = std::get<2>(result[i]);
-
-    std::cout << "[" << i << "]" << std::endl;
-    std::cout << "Median: " << median << std::endl;
-    std::cout << "Vector (x-slope, x-intercept, y-slope, y-intercept): "
-              << vector.x_slope << ", " << vector.x_intercept
-              << ", " << vector.y_slope << ", " << vector.y_intercept << std::endl;
-
-    std::cout << "Values (x, y, k):" << std::endl;
-    for (size_t k = 0; k < std::get<2>(cube.size()); ++k) {
-      const double time_offset = cube.timestamp(k) - cube.timestamp(0);
-      const ssize_t x = vector.position(time_offset).first;
-      const ssize_t y = vector.position(time_offset).second;
-
-      std::cout << " [ " << x << ", " << y << ", " << k << " ] = ";
-
-      if (cube.out_of_range(x, y, k)) std::cout << "OOR" << std::endl; // Out of Range
-      else std::cout << cube.get_pixel_value(x, y, k) << std::endl;
-    }
-    std::cout << std::endl;
-  }
-}
-*/
 
 // Function to write results to a csv file in the form:
 // ID | X_INTERCEPT | Y_INTERCEPT | X_SLOPE | Y_SLOPE | SNR | SUM | NUMBER OF FRAMES HIT
@@ -329,7 +305,8 @@ int main(int argc, char **argv) {
   size_t size_x; size_t size_y; size_t size_k;
   pixel_type *image_data;
   map_fits(options.filename, &size_x, &size_y, &size_k, &image_data);
-  cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k), read_exposuretime(size_k), read_psf(size_k));
+  std::tuple<std::vector<unsigned long>, std::vector<double>, std::vector<std::vector<double>>, std::vector<double>> lists = read_list_csv(size_k);
+  cube<pixel_type> cube(size_x, size_y, size_k, image_data, std::get<0>(lists), read_exposuretime(size_k), std::get<1>(lists),std::get<2>(lists),std::get<3>(lists));
   
   const std::size_t num_random_vector = get_num_vectors();
 
@@ -338,8 +315,6 @@ int main(int argc, char **argv) {
   std::cout << "#of vectors = " << num_random_vector
             << "\nexecution time (sec) = " << result.first
             << "\nvectors/sec = " << static_cast<double>(num_random_vector) / result.first << std::endl;
-
-  //print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
 
   write_tocsv(result.second);
 
