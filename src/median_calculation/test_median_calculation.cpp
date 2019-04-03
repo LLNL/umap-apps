@@ -45,16 +45,20 @@ int main(int argc, char** argv)
 
   image_data = (pixel_type*)utility::umap_fits_file::PerFits_alloc_cube(options.filename, &BytesPerElement, &size_x, &size_y, &size_k);
 
-  std::vector<double> timestamp_list(size_k), exposuretime_list(size_k), psf_list(size_k);
+  std::vector<double> noise_list(size_k), exposuretime_list(size_k), psf_list(size_k);
+  std::vector<unsigned long> timestamp_list;
+  std::vector<std::vector<double>> ra_dec_list;
   for (size_t i = 0; i < size_k; ++i)
   {
-	timestamp_list[i] = i * 1.0;
+	timestamp_list[i] = i * 100;
 	exposuretime_list[i] = 40.0;
 	psf_list[i] = 2.0;
+	ra_dec_list[i] = {0.0,0.0};
+	noise_list[i] = 100.0;
   }
   
 
-  cube<pixel_type> cube(size_x, size_y, size_k, image_data, timestamp_list, exposuretime_list, psf_list);
+  cube<pixel_type> cube(size_x, size_y, size_k, image_data, timestamp_list, exposuretime_list, psf_list, ra_dec_list, noise_list);
 
   for (int i = 0; i < num_vectors; ++i) {
     std::cout << "Vector " << i << std::endl;
