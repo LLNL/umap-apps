@@ -180,6 +180,8 @@ static int default_getoptions(void* optstruct, int argc, char *argv[])
     omp_set_num_threads(testops->numthreads);
   #endif
   umap_cfg_set_bufsize(testops->bufsize);
+
+  return 0;
 }
 
 static int umt_opts_argc;

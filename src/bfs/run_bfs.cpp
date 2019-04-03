@@ -58,6 +58,8 @@ int parse_options(void* optstruct, int argc, char **argv)
         return -1;
     }
   }
+
+  return 0;
 }
 
 std::pair<uint64_t *, uint64_t *>
