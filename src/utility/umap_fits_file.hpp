@@ -46,6 +46,8 @@
 namespace utility {
 namespace umap_fits_file {
 
+class CfitsStoreFile;
+
 struct Tile_Dim {
   std::size_t xDim;
   std::size_t yDim;
@@ -61,13 +63,17 @@ struct Tile_File {
 
 class Tile {
 friend std::ostream &operator<<(std::ostream &os, utility::umap_fits_file::Tile const &ft);
+friend class CfitsStoreFile;
 public:
   Tile(const std::string& _fn);
-  ssize_t buffered_read(char*, std::size_t, void*, std::size_t, off_t);
+  ssize_t buffered_read(void*, std::size_t, off_t);
   Tile_Dim get_Dim() { return dim; }
 private:
   Tile_File file;
   Tile_Dim  dim;
+  void* map;
+  std::size_t map_start; // start of the file data in the map
+  std::size_t map_size; // size of the map
 };
 std::ostream &operator<<(std::ostream &os, utility::umap_fits_file::Tile const &ft);
 
@@ -83,42 +89,23 @@ static std::unordered_map<void*, Cube*>  Cubes;
 class CfitsStoreFile : public Store {
   public:
     CfitsStoreFile(Cube* _cube_, size_t _rsize_, size_t _aligned_size)
-      : cube{_cube_}, rsize{_rsize_}, aligned_size{_aligned_size}
-    {
-      if ( posix_memalign((void**)(&aligned_buf), aligned_size, aligned_size) ) {
-            exit(1);
-      }
-    }
-
-    ~CfitsStoreFile() {
-      free(aligned_buf);
-    }
+      : cube{_cube_}, rsize{_rsize_}, aligned_size{_aligned_size}{}
 
     ssize_t read_from_store(char* buf, size_t nb, off_t off) {
-      ssize_t rval;
-      ssize_t bytesread = 0;
+      ssize_t rval = 0;
+      off_t tileno = off / cube->tile_size;
+      off_t tileoffset = off % cube->tile_size;
 
-      //
-      // Now read in remaining bytes
-      //
-      while ( nb ) {
-        off_t tileno = off / cube->tile_size;
-        off_t tileoffset = off % cube->tile_size;
-        size_t bytes_to_eof = cube->tile_size - tileoffset;
-        size_t bytes_to_read = std::min(bytes_to_eof, nb);
-
-        if ( ( rval = cube->tiles[tileno].buffered_read(aligned_buf, aligned_size, buf, bytes_to_read, tileoffset) ) == -1) {
-          perror("ERROR: buffered_read failed");
-          exit(1);
-        }
-
-        bytesread += rval;
-        nb -= rval;
-        buf += rval;
-        off += rval;
+      if ( ( rval = cube->tiles[tileno].buffered_read(buf, nb, tileoffset) ) == -1) {
+        perror("ERROR: buffered_read failed");
+        exit(1);
       }
 
-      return bytesread;
+      // Fill the rest with NaNs if the read returned less than the requested amount.
+      if (rval < nb) {
+        memset((void*)&buf[rval], 0xff, nb - rval - 1);
+      }
+      return rval;
     }
 
     ssize_t  write_to_store(char* buf, size_t nb, off_t off) {
@@ -286,34 +273,44 @@ Tile::Tile(const std::string& _fn)
   file.tile_start = (size_t)datastart;
   file.tile_size = (size_t)(dim.xDim * dim.yDim * dim.elem_size);
 
+  std::size_t pgaligned_tile_start = file.tile_start & ~(4096-1);
+  map_start = file.tile_start - pgaligned_tile_start;
+  map_size = file.tile_size + map_start;
+  if ( ( map = mmap(0, map_size, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, file.fd, pgaligned_tile_start) ) == 0 ) {
+    perror(file.fname.c_str());
+    exit(-1);
+  }
+
+  // Set some advice flags to minimize unwanted buffering and read-ahead on
+  // sparse data accesses
+  posix_fadvise(file.fd, pgaligned_tile_start, map_size, POSIX_FADV_RANDOM);
+  madvise(map, map_size, MADV_RANDOM | MADV_DONTDUMP);
+
   assert( (dataend - datastart) >= (dim.xDim * dim.yDim * dim.elem_size) );
 }
 
-ssize_t Tile::buffered_read(char* aligned_buf, std::size_t aligned_size, void* request_buf, std::size_t request_size, off_t request_offset)
+ssize_t Tile::buffered_read(void* request_buf, std::size_t request_size, off_t request_offset)
 {
-  off_t data_offset = request_offset + file.tile_start;
-  off_t aligned_data_offset = data_offset & ~(aligned_size - 1);
-  off_t copy_start_offset = data_offset - aligned_data_offset;
-  off_t copy_amount = aligned_size - copy_start_offset;
+  std::size_t ua_request_size = request_size + map_start;
+  off_t eof = 0;
+  off_t req_end = request_offset + ua_request_size;
 
-  assert("buffered_read: invalid offset received" 
-      && aligned_data_offset >= 0 
-      && aligned_data_offset < (file.tile_start + file.tile_size));
-
-  off_t bytes_read;
-  if ((bytes_read = ::pread(file.fd, aligned_buf, aligned_size, aligned_data_offset)) == -1) {
-    perror("ERROR: pread failed");
-    exit(1);
+  // Make sure that the memcpy doesn't go past EOF
+  if (req_end >= map_size) {
+    eof = req_end - map_size;
   }
 
-  assert("Incorrect number of bytes read" && copy_amount > 0);
+  void* request = &((char*)map)[request_offset];
+  memcpy(request_buf, request, ua_request_size - eof);
+  madvise(request, request_size*2, MADV_DONTNEED);
+  // Realign the data in the request buffer.
+  // TODO: Find a better way to fix this.
+  // This is a hack that relies on the fact that copy_buf passed in by
+  // the userfault handler from umap is actually allocated to be 2 umap pages
+  // rather than the request_size (1 page) given to this function.
+  memmove(request_buf, &((char*)request_buf)[map_start], request_size);
 
-  copy_amount = std::min(bytes_read, copy_amount);
-  copy_amount = std::min((off_t)request_size, copy_amount);
-
-  memcpy(request_buf, &aligned_buf[copy_start_offset], copy_amount);
-
-  return copy_amount;
+  return request_size - eof;
 }
 
 std::ostream &operator<<(std::ostream &os, Tile const &ft)

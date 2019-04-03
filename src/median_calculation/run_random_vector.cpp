@@ -102,12 +102,18 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
   std::vector<std::pair<pixel_type, vector_xy>> result(num_random_vector);
 
   double total_execution_time = 0.0;
+  int numthreads = 1;
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
   {
 #ifdef _OPENMP
+
+    if (omp_get_thread_num() == 0) {
+      numthreads = omp_get_num_threads();
+      std::cout << "num threads: " << numthreads << std::endl;
+    }
     std::mt19937 rnd_engine(123 + omp_get_thread_num());
 #else
     std::mt19937 rnd_engine(123);
@@ -146,7 +152,7 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
     }
   }
 
-  return std::make_pair(total_execution_time, result);
+  return std::make_pair(total_execution_time / numthreads, result);
 }
 
 void print_top_median(const cube<pixel_type> &cube,
@@ -202,11 +208,14 @@ int main(int argc, char **argv) {
 
   const std::size_t num_random_vector = get_num_vectors();
 
+  const auto start = utility::elapsed_time_sec();
   auto result = shoot_vector(cube, num_random_vector);
+  double txt = utility::elapsed_time_sec(start);
+  double thread_exec = result.first;
 
   std::cout << "#of vectors = " << num_random_vector
-            << "\nexecution time (sec) = " << result.first
-            << "\nvectors/sec = " << static_cast<double>(num_random_vector) / result.first << std::endl;
+            << "\nexecution time (sec) = " << txt
+            << "\nvectors/sec = " << static_cast<double>(num_random_vector) / txt << std::endl;
 
   print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
 

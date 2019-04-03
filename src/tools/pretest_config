@@ -1,0 +1,42 @@
+#!/bin/bash
+function free_mem {
+    m=`grep MemFree /proc/meminfo | awk -v N=2 '{print $N}'`
+    fm=$(((${m}/1024)/1024))
+    echo $fm GB Free
+}
+
+function drop_page_cache {
+  echo "Dropping page cache"
+  #echo 3 > /proc/sys/vm/drop_caches
+  /home/perma/drop_buffer_cache
+}
+
+function get_swap_info {
+  echo "----"
+  echo "Swap device Information:"
+  cat /proc/swaps
+  echo "----"
+}
+
+function get_nvme_info {
+  fs=`mount | grep intel | cut -d " " -f 1`
+  # blockdev --getra $fs
+  # cat /sys/block/nvme0n1/queue/read_ahead_kb
+  udevadm info -a $fs
+}
+
+function system_info {
+  uname -a
+  get_nvme_info
+}
+
+function test_setup {
+  free_mem
+  get_swap_info
+  drop_page_cache
+  free_mem
+  cat /proc/meminfo
+}
+
+system_info
+test_setup
