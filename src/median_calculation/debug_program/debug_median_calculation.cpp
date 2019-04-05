@@ -110,7 +110,6 @@ int main() {
 	psf_list[i] = 2.0;
 	ra_dec_list[i] = {0.0,0.0};
 	noise_list[i] = 100.0;
-	ra_dec_list[i] = {100.0,100.0};
   }
 
   cube<pixel_type> cube(size_x, size_y, size_k, data, std::move(timestamp_list), std::move(exposuretime_list), std::move(psf_list),std::move(ra_dec_list), std::move(noise_list));
