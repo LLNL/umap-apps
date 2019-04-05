@@ -168,7 +168,7 @@ std::tuple<std::vector<unsigned long>, std::vector<double>, std::vector<std::vec
 			timestamp_list[i] = (double)i*100.0;
 			psf_list[i] = 2.0;
 			ra_dec_list[i] = { 0.0,0.0 };
-			noise_list = 100.0;
+			noise_list[i] = 100.0;
 		}
 	}
 	
