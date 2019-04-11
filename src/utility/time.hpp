@@ -19,13 +19,28 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <chrono>
 
 namespace utility {
+inline std::chrono::high_resolution_clock::time_point elapsed_time() {
+  return std::chrono::high_resolution_clock::now();
+}
+
 inline std::chrono::high_resolution_clock::time_point elapsed_time_sec() {
   return std::chrono::high_resolution_clock::now();
 }
 
+inline std::chrono::high_resolution_clock::time_point elapsed_time_usec() {
+  return std::chrono::high_resolution_clock::now();
+}
+
+inline std::chrono::duration<unsigned long long int, std::nano> elapsed_time(const std::chrono::high_resolution_clock::time_point &tic) {
+  return std::chrono::high_resolution_clock::now() - tic;
+}
+
 inline double elapsed_time_sec(const std::chrono::high_resolution_clock::time_point &tic) {
-  auto duration_time = std::chrono::high_resolution_clock::now() - tic;
-  return static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(duration_time).count() / 1e6);
+  return static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(elapsed_time(tic)).count() / 1e6);
+}
+
+inline unsigned long long int elapsed_time_nsec(const std::chrono::high_resolution_clock::time_point &tic) {
+  return static_cast<unsigned long long int>(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed_time(tic)).count());
 }
 }
 #endif //UMAP_TEST_LIB_UTILITY_TIME_HPP

@@ -43,7 +43,7 @@ int main(int argc, char** argv)
   size_t size_x; size_t size_y; size_t size_k;
   pixel_type *image_data;
 
-  image_data = (pixel_type*)utility::umap_fits_file::PerFits_alloc_cube(options.filename, &BytesPerElement, &size_x, &size_y, &size_k);
+//   image_data = (pixel_type*)utility::umap_fits_file::PerFits_alloc_cube(options.filename, &BytesPerElement, &size_x, &size_y, &size_k);
 
   std::vector<double> timestamp_list(size_k), exposuretime_list(size_k), psf_list(size_k);
   for (size_t i = 0; i < size_k; ++i)
@@ -53,8 +53,8 @@ int main(int argc, char** argv)
 	psf_list[i] = 2.0;
   }
   
-
-  cube<pixel_type> cube(size_x, size_y, size_k, image_data, timestamp_list, exposuretime_list, psf_list);
+  utility::umap_fits_file::umap_fits_cube<pixel_type> umap_region(options.dirname);
+  cube<pixel_type> cube(umap_region, image_data, timestamp_list, exposuretime_list, psf_list);
 
   for (int i = 0; i < num_vectors; ++i) {
     std::cout << "Vector " << i << std::endl;
@@ -95,7 +95,7 @@ int main(int argc, char** argv)
     }
   }
 
-  utility::umap_fits_file::PerFits_free_cube(image_data);
+//   utility::umap_fits_file::PerFits_free_cube(image_data);
 
   std::cout << "Passed all tests" << std::endl;
 

@@ -23,8 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <tuple>
 
 #include "utility.hpp"
+#include "../utility/umap_fits_file.hpp"
 
-#define MEDIAN_CALCULATION_ROW_MAJOR 1
+#define MEDIAN_CALCULATION_COLUMN_MAJOR 1
 #define MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE 0
 
 namespace median {
@@ -40,20 +41,15 @@ class cube {
   /// -------------------------------------------------------------------------------- ///
   cube() = default;
 
-  cube(const size_t size_x,
-	  const size_t size_y,
-	  const size_t size_k,
-	  pixel_type *const image_data,
-	  std::vector<double> timestamp_list,
-	  std::vector<double> exposuretime_list,
-	  std::vector<double> psf_list)
-	  : m_size_x(size_x),
-	  m_size_y(size_y),
-	  m_size_k(size_k),
-	  m_image_data(image_data),
-	  m_timestamp_list(std::move(timestamp_list)),
-	  m_exposuretime_list(std::move(exposuretime_list)),
-	  m_psf_list(std::move(psf_list)) {
+  cube(const utility::umap_fits_file::umap_fits_cube<pixel_type>& u_cube,
+    std::vector<double> timestamp_list,
+    std::vector<double> exposuretime_list,
+    std::vector<double> psf_list)
+    : m_size_x(u_cube.size_x), m_size_y(u_cube.size_y), m_size_k(u_cube.size_k),
+      u_cube(u_cube),
+      m_timestamp_list(std::move(timestamp_list)),
+      m_exposuretime_list(std::move(exposuretime_list)),
+      m_psf_list(std::move(psf_list)) {
     assert(m_size_k <= m_timestamp_list.size());
     assert(m_size_k <= m_exposuretime_list.size());
     assert(m_size_k <= m_psf_list.size());
@@ -69,90 +65,53 @@ class cube {
   /// Public methods
   /// -------------------------------------------------------------------------------- ///
 
-  /// \brief Return frame size
-  size_t frame_size() const {
-    return m_size_x * m_size_y;
-  }
-
-  /// \brief Return cube size
-  size_t cube_size() const {
-    return m_size_x * m_size_y * m_size_k;
-  }
-
   /// \brief Returns TRUE if the given x-y-k coordinate points at out-of-range
   bool out_of_range(const ssize_t x, const ssize_t y, const ssize_t k) const {
-    return (index_in_cube(x, y, k) == -1);
+    return (this->u_cube.index_in_cube(x, y, k) == -1);
   }
 
   /// \brief Returns a pixel value of the given x-y-k coordinate
   /// A returned value can be NaN value
   pixel_type get_pixel_value(const ssize_t x, const ssize_t y, const ssize_t k) const {
-    assert(!out_of_range(x, y, k));
-    return reverse_byte_order<pixel_type>(m_image_data[index_in_cube(x, y, k)]);
+    std::cout << "cube::gpv\t" << "k:" << k << " x:" << x << " y:" << y  << std::endl;
+    return this->u_cube.get_pixel_value(x, y, k);
   }
 
   /// \brief Returns the size of cube (x, y, k) in tuple
-  std::tuple<size_t, size_t, size_t> size() const {
+  std::tuple<std::size_t, std::size_t, std::size_t> size() const {
     return std::make_tuple(m_size_x, m_size_y, m_size_k);
   }
-
-  const pixel_type* image_data() const {
-    return m_image_data;
+  
+  std::size_t cube_size() const {
+    return m_size_x * m_size_y * m_size_k;
+  }
+  
+  std::tuple<std::size_t, std::size_t, std::size_t> get_rnd_coord(std::size_t index, double x_slope, double y_slope) const {
+    auto intercept = u_cube.get_rnd_coord(index);
+    std::size_t k = std::get<2>(intercept);
+    double time_offset = this->timestamp(k) - this->timestamp(0);
+    std::size_t x = std::round(std::get<0>(intercept) - x_slope * time_offset);
+    std::size_t y = std::round(std::get<1>(intercept) - y_slope * time_offset);
+    return std::make_tuple(x, y, 0);
   }
 
   double timestamp(const size_t k) const {
-    assert(k < m_timestamp_list.size());
+    assert(k < this->m_timestamp_list.size());
     return m_timestamp_list[k];
   }
-  
+
   double exposuretime(const size_t k) const {
-    assert(k < m_exposuretime_list.size());
+    assert(k < this->m_exposuretime_list.size());
     return m_exposuretime_list[k];
   }
-  
+
   double psf(const size_t k) const {
-    assert(k < m_psf_list.size());
+    assert(k < this->m_psf_list.size());
     return m_psf_list[k];
   }
-    
+
+
  private:
-  /// -------------------------------------------------------------------------------- ///
-  /// Private methods
-  /// -------------------------------------------------------------------------------- ///
-
-  /// \brief Returns the index of the given (x, y, k) in a 3D cube
-  /// Returns -1 if the given xyz coordinate points at out side of the cube
-  ssize_t index_in_cube(const ssize_t x, const ssize_t y, const ssize_t k) const {
-    if (x < 0 || m_size_x <= x || y < 0 || m_size_y <= y) {
-#if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
-      std::cerr << "Frame index is out-of-range: "
-              << "(" << x << ", " << y << ") is out of "
-              << "(" << m_size_x << ", " << m_size_y << ")" << std::endl;
-#endif
-      return -1;
-    }
-
-    if (k < 0 || m_size_k <= k) {
-#if MEDIAN_CALCULATION_VERBOSE_OUT_OF_RANGE
-      std::cerr << "Cube index is out-of-range: "
-              << "(" << x << ", " << y << ", " << k << ") is out of "
-              << "(" << m_size_x << ", " << m_size_y << ", " << m_size_k << ")" << std::endl;
-#endif
-      return -1;
-    }
-
-#if MEDIAN_CALCULATION_ROW_MAJOR
-    const ssize_t frame_index = x + y * m_size_x;
-#else
-    const ssize_t frame_index = x * m_size_y + y;
-#endif
-
-    const ssize_t cube_index = frame_index + k * frame_size();
-
-    return cube_index;
-  }
-
-
   /// -------------------------------------------------------------------------------- ///
   /// Private fields
   /// -------------------------------------------------------------------------------- ///
@@ -160,7 +119,7 @@ class cube {
   size_t m_size_y;
   size_t m_size_k;
 
-  pixel_type *const m_image_data;
+  const utility::umap_fits_file::umap_fits_cube<pixel_type>& u_cube;
 
   std::vector<double> m_timestamp_list; // an array of the timestamp of each frame.
   std::vector<double> m_exposuretime_list; // an array of the exposure time of each image
