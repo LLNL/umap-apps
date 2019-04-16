@@ -33,9 +33,12 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <set>
+#include <map>
 #include <algorithm>
 #include <cassert>
-#include <sys/types.h>
+#include <utility>
+
+# include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -43,6 +46,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
+
 #include "umap/umap.h"
 #include "fitsio.h"
 
@@ -754,33 +758,34 @@ class umap_fits_cube {
 public:
 
   using pixel_type = _pixel_type;
+  using csv_map = std::unordered_map<std::string, std::string>;
 
   /// -------------------------------------------------------------------------------- ///
   /// Constructor
   /// -------------------------------------------------------------------------------- ///
   umap_fits_cube() = default;
 
-  umap_fits_cube(const std::string& basepath, const char* timestamp_file, const char* exposure_file, const char* psf_file) {
+  umap_fits_cube(const std::string& basepath, const char* datalist_file, const char* exposure_file) {
     size_t byte_per_element;
     m_cube.page_size = utility::umt_getpagesize();
     std::vector<std::string> fitslist;
     find_fits(basepath, fitslist);
     std::sort(fitslist.begin(), fitslist.end());
-    struct stat sbuf;
-    for (auto it = fitslist.begin(); it != fitslist.end(); it++) {
-      if ( stat(it->c_str(), &sbuf) == -1 ) {
-        cerr << "Warning: file \"" << *it << "\" enumerated but does not exist.\n";
-      } else {
-        m_cube.add_tile( *it );
-      }
-    }
-    m_cube.refit();
-    
+
+    csv_map csvdata;
+    this->read_list_csv(csvdata, datalist_file);
+
+    this->add_from_csv(csvdata, fitslist);
     this->size_x = m_cube.max.x + m_cube.pos.x;
     this->size_y = m_cube.max.y + m_cube.pos.y;
     this->size_k = m_cube.max.z + m_cube.pos.z;
+    std::cout << m_timestamp_list.size() << " " << size_k << std::endl;
+    assert(m_timestamp_list.size() == size_k);
+
+    for (size_t i = 0; i < size_k; ++i) {
+      m_exposuretime_list.push_back(40.0);
+    }
 //     this->cstore = new umap_fits_file_internal::CfitsStoreFile(&m_cube, m_cube.cube_size, m_cube.page_size);
-// 
 //     const int prot = PROT_READ|PROT_WRITE;
 //     int flags = UMAP_PRIVATE;
 //     this->cstore->region = umap_ex(NULL, this->m_cube.cube_size, prot, flags, 0, 0, this->cstore);
@@ -791,11 +796,6 @@ public:
 //         exit(1);
 //     }
 //     this->m_image_data = (pixel_type*)cstore->region;
-
-    double default_psf = 2.5, default_exp = 40.0;
-    this->import_hdu_data(timestamp_file, this->m_timestamp_list, nullptr);
-    this->import_hdu_data(exposure_file, this->m_exposuretime_list, &default_exp);
-    this->import_hdu_data(psf_file, this->m_psf_list, &default_psf);
   }
 
   ~umap_fits_cube() {
@@ -807,6 +807,67 @@ public:
   umap_fits_cube(umap_fits_cube &&) = delete;
   umap_fits_cube &operator=(const umap_fits_cube &) = delete;
   umap_fits_cube &operator=(umap_fits_cube &&) = delete;
+
+  void add_from_csv(csv_map& csvdata, const std::vector<std::string>& fitslist) {
+    double mjd_start;
+    int count = 0;
+    struct stat sbuf;
+    using row_data_t = std::tuple<double, double, double, double, unsigned long, bool>;
+    std::map<std::string, row_data_t> files_loaded;
+    for (auto it = fitslist.begin(); it != fitslist.end(); it++) {
+      std::string basename = it->substr(it->rfind("/") + 1);
+      if ( stat(it->c_str(), &sbuf) == -1 ) {
+        std::cerr << "Warning: file \"" << *it << "\" enumerated but does not exist." << std::endl;
+        continue;
+      }
+      double psf = 2.0, mjd, ra = 0, dec = 0, noise = 100;
+      unsigned long time = count * 4000;
+      bool valid = false;
+      row_data_t row_data = std::make_tuple(psf, ra, dec, noise, time, valid);
+      if (!files_loaded.count(basename)) {
+        auto _row = csvdata.find(basename);
+        if (_row == csvdata.end()) {
+          std::cerr << "Warning: file \"" << basename << "\" does not exist in data CSV." << std::endl;
+          row_data = std::tie(psf, ra, dec, noise, time, valid);
+        } else {
+          std::string row(_row->second);
+          if (sscanf(row.c_str(), "%lf,%lf,%lf,%lf,%lf", &psf, &mjd, &ra, &dec, &noise) == 5) {
+            if (m_timestamp_list.size() == 0) {
+              mjd_start = mjd;
+            }
+            time = std::round((mjd - mjd_start) * 24 * 60 * 60 * 100); // Hundreths of a second
+            valid = true;
+            row_data = std::tie(psf, ra, dec, noise, time, valid);
+          } else {
+            // NAN row
+          }
+        }
+        files_loaded.emplace(basename, row_data);
+        count += 1;
+      }
+      m_cube.add_tile( *it );
+      files_loaded.emplace( basename, row_data );
+    }
+    for (auto kv : files_loaded) {
+      double psf, ra, dec, noise; unsigned long time; bool valid = false;
+//       std::tie(psf, ra, dec, noise, time, valid) = kv.second;
+//       std::cout << kv.first << " " << psf << " " << ra << " " << dec << " " << noise << " " << time << " " << valid << std::endl;
+      if (std::get<5>(kv.second)) {
+        std::array<double, 2> ra_dec = {ra,  dec};
+        m_timestamp_list.push_back(time);
+        m_psf_list.push_back(psf);
+        m_ra_dec_list.push_back(ra_dec);
+        m_noise_list.push_back(noise);
+      } else {
+        // copy previous row data if NAN row
+        m_timestamp_list.emplace_back(m_timestamp_list.back());
+        m_psf_list.emplace_back(m_psf_list.back());
+        m_ra_dec_list.emplace_back(m_ra_dec_list.back());
+        m_noise_list.emplace_back(m_noise_list.back());
+      }
+    }
+    m_cube.refit();
+  }
 
   /// -------------------------------------------------------------------------------- ///
   /// Public methods
@@ -866,7 +927,7 @@ public:
   std::tuple<size_t, size_t, size_t> size() const {
     return std::make_tuple( size_x, size_y, size_k );
   }
-  
+
   void import_hdu_data(const char* filename, std::vector<double>& dest, double* default_val) {
     if (filename != nullptr) {
       std::ifstream ifs(filename);
@@ -892,19 +953,45 @@ public:
     }
   }
 
-  double timestamp(const size_t k) const {
-    assert(k < m_timestamp_list.size());
+  // Function to read data info from a csv file
+  // Reads timestamp, psf fwhm, (ra/dec), and background sky noise 
+  void read_list_csv(csv_map& csvdata, const char* list_file_name) {
+    if (list_file_name != nullptr) {
+      std::ifstream ifs(list_file_name);
+      if (!ifs.is_open()) {
+        std::cerr << "Cannot open " << list_file_name << std::endl;
+        std::abort();
+      }
+      std::string line;
+      std::getline(ifs, line); //skip first row of header info
+      char fn[32], fdata[256];
+      while (std::getline(ifs, line)) {
+        std::istringstream iss{ line };
+        if (sscanf(iss.str().c_str(), "%[^,],%s", fn, fdata) == 2) {
+          csvdata.emplace(std::string(fn), std::string(fdata));
+        }
+      }
+    }
+  }
+
+  unsigned long timestamp(const size_t k) const {
     return m_timestamp_list[k];
   }
 
   double exposuretime(const size_t k) const {
-    assert(k < m_exposuretime_list.size());
     return m_exposuretime_list[k];
   }
 
   double psf(const size_t k) const {
-    assert(k < m_psf_list.size());
     return m_psf_list[k];
+  }
+
+  std::array<double, 2> ra_dec(const size_t k) const {
+    return m_ra_dec_list[k];
+  }
+
+  double noise(const size_t k) const {
+    return m_noise_list[k];
   }
 
   /// -------------------------------------------------------------------------------- ///
@@ -926,9 +1013,12 @@ private:
   /// -------------------------------------------------------------------------------- ///
 
   pixel_type * m_image_data;
-  std::vector<double> m_timestamp_list;     // an array of the timestamp of each frame.
-  std::vector<double> m_exposuretime_list;  // an array of the exposure time of each image
-  std::vector<double> m_psf_list;           // an array of the psf fwhm of each image
+  std::vector<unsigned long> m_timestamp_list;    // an array of the timestamp of each frame.
+  std::vector<double>        m_exposuretime_list; // an array of the exposure time of each image
+  std::vector<double>        m_psf_list;          // an array of the psf fwhm of each image
+  std::vector<std::array<double, 2>>     m_ra_dec_list;       // an array of ra/dec values for boresight of each image
+  std::vector<double>        m_noise_list;        // an array of average background sky value (noise) for each image
+
   umap_fits_file_internal::Cube m_cube;
   umap_fits_file_internal::CfitsStoreFile* cstore;
 };
@@ -956,7 +1046,6 @@ void find_fits(std::string basedir, std::vector<std::string>& fitslist) {
 }
 
 } // namespace umap_fits_file
-
 } // namespace utility
 #endif
 

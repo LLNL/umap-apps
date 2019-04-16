@@ -34,10 +34,11 @@ struct vector_xy {
   double y_slope;
   double y_intercept;
 
-  /// \brief Returns the xy position at a given offset
-  std::pair<ssize_t, ssize_t> position(const double offset) const {
-    const ssize_t x = std::round(x_slope * offset + x_intercept);
-    const ssize_t y = std::round(y_slope * offset + y_intercept);
+  /// \brief Returns the xy position at a given offset (offset given in hundreths of a second)
+  std::pair<ssize_t, ssize_t> position(const unsigned long offset) const {
+    double offset_seconds = (double)offset / 100;
+    const ssize_t x = std::round(x_slope * offset_seconds + x_intercept);
+    const ssize_t y = std::round(y_slope * offset_seconds + y_intercept);
     return std::make_pair(x, y);
   }
 };
@@ -118,10 +119,18 @@ public:
 
 
   // Function to pull image info relevant for calculating SNR:
-  // Returns: <streak sum value, number of pixels, exposure time>
-  std::tuple<pixel_type, int, double> snr_info() {
+  // Returns: <streak sum value, number of pixels, exposure time, noise>
+  std::tuple<pixel_type, int, double, double> snr_info() {
     std::tuple<pixel_type, int> streak_info = get_pixel_value_with_streak();
-    return std::tuple<pixel_type, int, double> (std::get<0>(streak_info), std::get<1>(streak_info), u_cube.exposuretime(m_current_k_pos));
+    return std::tuple<pixel_type, int, double, double> (std::get<0>(streak_info), std::get<1>(streak_info), u_cube.exposuretime(m_current_k_pos), u_cube.noise(m_current_k_pos));
+  }
+
+  // Function to pull imag einfo relevant for the vector_check file:
+  // Returns: <streak sum value, number of pixels, x coordinate at center, y coordinate at center, k coordinate>
+  std::tuple<pixel_type, int, ssize_t, ssize_t, size_t> vector_pos_info() {
+    std::tuple<pixel_type, int> streak_info = get_pixel_value_with_streak();
+    const auto xy = current_xy_position();
+    return std::tuple<pixel_type, int, ssize_t, ssize_t, size_t>(std::get<0>(streak_info), std::get<1>(streak_info), xy.first, xy.second, m_current_k_pos);
   }
 
 
@@ -130,7 +139,7 @@ public:
   /// Private methods
   /// -------------------------------------------------------------------------------- ///
   std::pair<ssize_t, ssize_t> current_xy_position() const {
-    const double time_offset = u_cube.timestamp(m_current_k_pos) - u_cube.timestamp(0);
+    const unsigned long time_offset = u_cube.timestamp(m_current_k_pos) - u_cube.timestamp(0);
     return m_vector.position(time_offset);
   }
 

@@ -33,9 +33,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "../utility/time.hpp"
 #include "utility.hpp"
 #include "vector.hpp"
-#include "beta_distribution.hpp"
-#include "custom_distribution.hpp"
-#include "distribution_test.hpp"
+#include "velocity_distribution.hpp"
 
 using namespace median;
 using pixel_type = float;
@@ -51,11 +49,36 @@ std::size_t get_num_vectors() {
   return num_random_vector;
 }
 
+std::vector<double> read_exposuretime(const size_t size_k) {
+  std::vector<double> exposuretime_list;
+
+  const char *exposuretime_file_name = std::getenv("EXPOSURETIME_FILE");
+  if (exposuretime_file_name != nullptr) {
+    std::ifstream ifs(exposuretime_file_name);
+    if (!ifs.is_open()) {
+      std::cerr << "Cannot open " << exposuretime_file_name << std::endl;
+      std::abort();
+    }
+    for (double exposuretime; ifs >> exposuretime;) {
+      exposuretime_list.emplace_back(exposuretime);
+    }
+    if (exposuretime_list.size() != size_k) {
+      std::cerr << "#of lines in " << exposuretime_file_name << " is not the same as #of fits files" << std::endl;
+      std::abort();
+    }
+  } else {
+    // If a list of exposure times is not given, assume that each exposure time is 40 s
+    exposuretime_list.resize(size_k);
+    for (size_t i = 0; i < size_k; ++i) exposuretime_list[i] = 40;
+  }
+
+  return exposuretime_list;
+}
+
 // Function to calculate relevant information about a given vector
 // Returns: <SNR, weighted sum, number of frames intersected>
 template <typename iterator_type>
-std::tuple<double, typename iterator_type::value_type, int>
-  vector_info(iterator_type iterator_begin, iterator_type iterator_end) {
+std::tuple<double, typename iterator_type::value_type, int> vector_info(iterator_type iterator_begin, iterator_type iterator_end) {
   using value_type = typename iterator_type::value_type;
 
   if (iterator_begin == iterator_end)
@@ -72,7 +95,7 @@ std::tuple<double, typename iterator_type::value_type, int>
   int frame_num = 0;
 
   for (auto iterator(iterator_begin); iterator != iterator_end; ++iterator) {
-    std::tuple<pixel_type, int, double> snr_info = iterator.snr_info();
+    std::tuple<pixel_type, int, double, double> snr_info = iterator.snr_info();
     const value_type value = std::get<0>(snr_info);
     int num_pixels = std::get<1>(snr_info);
 
@@ -82,7 +105,7 @@ std::tuple<double, typename iterator_type::value_type, int>
     ++frame_num;
 
     // SNR calculation
-    double B = 10*dark_noise; // pull background noise from list???
+    double B = std::get<3>(snr_info); // pull background noise from list
     double exp_time = std::get<2>(snr_info);
 
     total_B += B * num_pixels * exp_time;
@@ -97,8 +120,7 @@ std::tuple<double, typename iterator_type::value_type, int>
   return std::tuple<double, value_type, int> (SNR, total_signal, frame_num);
 }
 
-std::vector<std::tuple<vector_xy, double, double, int>>
-shoot_vector(const fits_cube &d_cube, const std::size_t num_random_vector) {
+std::vector<std::tuple<vector_xy, double, double, int>> shoot_vector(const fits_cube &d_cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
   std::vector<std::tuple<vector_xy, double, double, int>> result(num_random_vector);
   uint64_t rng_time = 0;
@@ -115,9 +137,6 @@ shoot_vector(const fits_cube &d_cube, const std::size_t num_random_vector) {
     if (omp_get_thread_num() == 0) {
       num_threads == omp_get_num_threads();
     }
-#endif
-
-#ifdef _OPENMP
     std::mt19937 rnd_engine(123 + omp_get_thread_num());
 #else
     std::mt19937 rnd_engine(123);
@@ -127,8 +146,8 @@ shoot_vector(const fits_cube &d_cube, const std::size_t num_random_vector) {
     // Generate a slope distribution from a given file or a beta distribution if no file given
     const char *slope_filename = std::getenv("SLOPE_PDF_FILE");
 
-    // Function takes both potential filename and potential (optional) a/b arguments for beta distribution
-    slope_distribution slope_dist(slope_filename,3,2);
+    // Function takes both potential filename, (optional) a/b arguments for beta distribution, and pixel scale
+    slope_distribution slope_dist(slope_filename,3,2,0.26);
 
     // Shoot random vectors using multiple threads
 #ifdef _OPENMP
@@ -139,7 +158,7 @@ shoot_vector(const fits_cube &d_cube, const std::size_t num_random_vector) {
 
       // record how much time was spent generating random vectors
       const auto rng_start = utility::elapsed_time();
-        std::vector<double> slopes = slope_dist(rnd_engine);
+        std::vector<double> slopes = slope_dist(rnd_engine, d_cube.ra_dec(0)[0], d_cube.ra_dec(0)[1]);
         double x_slope = slopes[0];
         double y_slope = slopes[1];
 
@@ -193,11 +212,13 @@ int main(int argc, char **argv) {
   omp_set_num_threads(options.numthreads);
 #endif
 
-  utility::umap_fits_file::umap_fits_cube<pixel_type> umap_region(options.dirname, std::getenv("TIMESTAMP_FILE"), std::getenv("EXPOSURETIME_FILE"), std::getenv("PSF_FILE"));
+  const char *data_list_name = std::getenv("DATA_LIST_FILE");
+  const char *exptime_list_name = std::getenv("EXPOSURETIME_FILE");
+  fits_cube d_cube(options.dirname, data_list_name, exptime_list_name);
   const std::size_t num_random_vector = get_num_vectors();
 
   const auto main_start = utility::elapsed_time_sec();
-  auto result = shoot_vector(umap_region, num_random_vector);
+  auto result = shoot_vector(d_cube, num_random_vector);
   const double main_exec_time = utility::elapsed_time_sec(main_start);
 
   std::cout << "#of vectors = " << num_random_vector

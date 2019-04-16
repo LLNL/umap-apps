@@ -33,32 +33,16 @@ const pixel_type y_slope[num_vectors] = {0, 0, 0, 0, 0, 0};
 const pixel_type correct_median[num_vectors] = {14913.25, 15223.21, 2284.29, 8939.15, 24899.55, 2395.80};
 
 using namespace median;
+using fits_cube = utility::umap_fits_file::umap_fits_cube<pixel_type>;
 
 int main(int argc, char** argv)
 {
   utility::umt_optstruct_t options;
   umt_getoptions(&options, argc, argv);
-
-  size_t BytesPerElement;
-  size_t size_x; size_t size_y; size_t size_k;
-  pixel_type *image_data;
-
-//   image_data = (pixel_type*)utility::umap_fits_file::PerFits_alloc_cube(options.filename, &BytesPerElement, &size_x, &size_y, &size_k);
-
-  std::vector<double> timestamp_list(size_k), exposuretime_list(size_k), psf_list(size_k);
-  for (size_t i = 0; i < size_k; ++i)
-  {
-	timestamp_list[i] = i * 1.0;
-	exposuretime_list[i] = 40.0;
-	psf_list[i] = 2.0;
-  }
-  
-  utility::umap_fits_file::umap_fits_cube<pixel_type> umap_region(options.dirname);
-  cube<pixel_type> cube(umap_region, image_data, timestamp_list, exposuretime_list, psf_list);
+  fits_cube<pixel_type> cube(options.dirname, 0, 0);
 
   for (int i = 0; i < num_vectors; ++i) {
     std::cout << "Vector " << i << std::endl;
-
     vector_xy vector{x_slope[i], x_intercept[i], y_slope[i], y_intercept[i]};
     cube_iterator_with_vector<pixel_type> begin(cube, vector, 0);
     cube_iterator_with_vector<pixel_type> end(cube, vector);
@@ -90,12 +74,9 @@ int main(int argc, char** argv)
         else std::cout << cube.get_pixel_value(x, y, k) << std::endl;
       }
       std::cout << std::endl;
-
       std::abort();
     }
   }
-
-//   utility::umap_fits_file::PerFits_free_cube(image_data);
 
   std::cout << "Passed all tests" << std::endl;
 

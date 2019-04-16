@@ -41,18 +41,29 @@ class cube {
   /// -------------------------------------------------------------------------------- ///
   cube() = default;
 
-  cube(const utility::umap_fits_file::umap_fits_cube<pixel_type>& u_cube,
-    std::vector<double> timestamp_list,
+  cube(const size_t size_x,
+    const size_t size_y,
+    const size_t size_k,
+    pixel_type *const image_data,
+    std::vector<unsigned long> timestamp_list,
     std::vector<double> exposuretime_list,
-    std::vector<double> psf_list)
-    : m_size_x(u_cube.size_x), m_size_y(u_cube.size_y), m_size_k(u_cube.size_k),
-      u_cube(u_cube),
-      m_timestamp_list(std::move(timestamp_list)),
-      m_exposuretime_list(std::move(exposuretime_list)),
-      m_psf_list(std::move(psf_list)) {
+    std::vector<double> psf_list,
+    std::vector<std::vector<double>> ra_dec_list,
+    std::vector<double> noise_list)
+    : m_size_x(size_x),
+    m_size_y(size_y),
+    m_size_k(size_k),
+    m_image_data(image_data),
+    m_timestamp_list(std::move(timestamp_list)),
+    m_exposuretime_list(std::move(exposuretime_list)),
+    m_psf_list(std::move(psf_list)),
+    m_ra_dec_list(std::move(ra_dec_list)),
+    m_noise_list(std::move(noise_list)) {
     assert(m_size_k <= m_timestamp_list.size());
     assert(m_size_k <= m_exposuretime_list.size());
     assert(m_size_k <= m_psf_list.size());
+    assert(m_size_k <= m_ra_dec_list.size());
+    assert(m_size_k <= m_noise_list.size());
   }
 
   ~cube() = default; // Default destructor
@@ -95,8 +106,8 @@ class cube {
     return std::make_tuple(x, y, 0);
   }
 
-  double timestamp(const size_t k) const {
-    assert(k < this->m_timestamp_list.size());
+  unsigned long timestamp(const size_t k) const {
+    assert(k < m_timestamp_list.size());
     return m_timestamp_list[k];
   }
 
@@ -110,7 +121,15 @@ class cube {
     return m_psf_list[k];
   }
 
+  std::vector<double> ra_dec(const size_t k) const {
+    assert(k < m_ra_dec_list.size());
+    return m_ra_dec_list[k];
+  }
 
+  double noise(const size_t k) const {
+    assert(k < m_noise_list.size());
+    return m_noise_list[k];
+  }
  private:
   /// -------------------------------------------------------------------------------- ///
   /// Private fields
@@ -121,9 +140,11 @@ class cube {
 
   const utility::umap_fits_file::umap_fits_cube<pixel_type>& u_cube;
 
-  std::vector<double> m_timestamp_list; // an array of the timestamp of each frame.
+  std::vector<unsigned long> m_timestamp_list; // an array of the timestamp of each frame in HUNDRETHS OF A SECOND.
   std::vector<double> m_exposuretime_list; // an array of the exposure time of each image
   std::vector<double> m_psf_list; //an array of the psf fwhm of each image
+  std::vector<std::vector<double>> m_ra_dec_list; //an array of ra/dec values for boresight of each image
+  std::vector<double> m_noise_list; // an array of average background sky value (noise) for each image
 };
 
 } // namespace median
