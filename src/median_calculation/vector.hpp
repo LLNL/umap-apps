@@ -125,6 +125,14 @@ class cube_iterator_with_vector {
 	  return std::tuple<pixel_type, int, double, double> (std::get<0>(streak_info), std::get<1>(streak_info), m_cube.exposuretime(m_current_k_pos), m_cube.noise(m_current_k_pos));
   }
 
+  // Function to pull imag einfo relevant for the vector_check file:
+  // Returns: <streak sum value, number of pixels, x coordinate at center, y coordinate at center, k coordinate>
+  std::tuple<pixel_type, int, ssize_t, ssize_t, size_t> vector_pos_info() {
+	  std::tuple<pixel_type, int> streak_info = get_pixel_value_with_streak();
+	  const auto xy = current_xy_position();
+	  return std::tuple<pixel_type, int, ssize_t, ssize_t, size_t>(std::get<0>(streak_info), std::get<1>(streak_info), xy.first, xy.second, m_current_k_pos);
+  }
+
 
  private:
   /// -------------------------------------------------------------------------------- ///

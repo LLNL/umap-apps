@@ -159,6 +159,18 @@ std::tuple<std::vector<unsigned long>, std::vector<double>, std::vector<std::vec
 			std::abort();
 		}
 	}
+	else {
+		timestamp_list.resize(size_k);
+		psf_list.resize(size_k);
+		ra_dec_list.resize(size_k);
+		noise_list.resize(size_k);
+		for (size_t i = 0; i < size_k; ++i) {
+			timestamp_list[i] = (double)i*100.0;
+			psf_list[i] = 2.0;
+			ra_dec_list[i] = { 0.0,0.0 };
+			noise_list[i] = 100.0;
+		}
+	}
 	
 	return std::make_tuple(timestamp_list, psf_list, ra_dec_list, noise_list);
 }
