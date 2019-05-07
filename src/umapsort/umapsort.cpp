@@ -107,24 +107,61 @@ int main(int argc, char **argv)
   uint64_t pagesize;
   uint64_t totalbytes;
   uint64_t arraysize;
-  void* base_addr;
+  std::vector<void*> mappings;
+  std::vector<std::string> filenames;
+  std::vector<uint64_t> mapsize;
+  void* range;
 
   auto start = utility::elapsed_time_sec();
-  pagesize = (uint64_t)utility::umt_getpagesize();
 
   umt_getoptions(&options, argc, argv);
+
+  pagesize = (uint64_t)utility::get_umap_page_size();
 
   omp_set_num_threads(options.numthreads);
 
   totalbytes = options.numpages*pagesize;
-  base_addr = utility::map_in_file(options.filename, options.initonly, options.noinit, options.usemmap, totalbytes);
-  if (base_addr == nullptr)
+  range = utility::map_in_file(options.filename, options.initonly, options.noinit, options.usemmap, totalbytes);
+  if (range == nullptr)
     return -1;
+
+  if (options.numfiles > 1) {
+    std::cout << "Setting up to operate on " << options.numfiles << " files." << std::endl;
+
+    uint64_t pages_per_file = options.numpages / options.numfiles;
+    uint64_t pages_in_last_file = pages_per_file + (options.numpages % options.numfiles);
+
+    for ( int i = 0; i < options.numfiles; ++i) {
+      stringstream ss;
+
+      uint64_t pagecount = (i == (options.numfiles-1)) ? pages_per_file : pages_in_last_file;
+      uint64_t bcount = pagesize * pagecount;
+      mapsize.push_back(bcount);
+
+      ss << options.filename << "." << i;
+      filenames.push_back(ss.str());
+
+      std::cout << "Mapping " << mapsize[i] << " bytes at " << range << " to " << filenames[i] << std::endl;
+
+      void* val = utility::map_in_file(filenames[i], options.initonly, options.noinit, options.usemmap, mapsize[i], range);
+      if (val == nullptr) {
+        std::cerr << "Failed to map " << filenames[i] << std::endl;
+        return -1;
+      }
+      mappings.push_back(val);
+      range = (void*)((char*)range + mapsize[i]);
+    }
+
+  }
+  else {
+    mappings.push_back(range);
+    mapsize.push_back(totalbytes);
+  }
 
   fprintf(stderr, "umap INIT took %f seconds\n", utility::elapsed_time_sec(start));
   fprintf(stderr, "%lu pages, %lu bytes, %lu threads\n", options.numpages, totalbytes, options.numthreads);
 
-  uint64_t *arr = (uint64_t *) base_addr;
+  uint64_t *arr = (uint64_t *) mappings[0];
   arraysize = totalbytes/sizeof(uint64_t);
 
   start = utility::elapsed_time_sec();
@@ -156,7 +193,17 @@ int main(int argc, char **argv)
   }
 
   start = utility::elapsed_time_sec();
-  utility::unmap_file(options.usemmap, totalbytes, base_addr);
+
+  if (options.numfiles > 1) {
+    for ( int i = 0; i < options.numfiles; ++i) {
+      std::cout << "Unmapping " << mapsize[i] << " bytes from " << mappings[i] << std::endl;
+      utility::unmap_file(options.usemmap, mapsize[i], mappings[i]);
+    }
+  }
+  else {
+    utility::unmap_file(options.usemmap, mapsize[0], mappings[0]);
+  }
+
   fprintf(stderr, "umap TERM took %f seconds\n", utility::elapsed_time_sec(start));
 
   return 0;
