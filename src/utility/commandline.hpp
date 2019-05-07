@@ -36,6 +36,7 @@ typedef struct {
   uint64_t bufsize;
   uint64_t numpages;
   uint64_t numthreads;
+  int64_t  numfiles;
   uint64_t num_filler_threads;
   uint64_t num_evictor_threads;
   uint64_t readahead;
@@ -52,12 +53,13 @@ static char const* FILENAME = "abc";
 const uint64_t NUMPAGES = 10000000;
 const uint64_t NUMTHREADS = 2;
 const uint64_t BUFFERSIZE = 16;
+const int64_t NUMFILES = 1;
 
 using namespace std;
 
 static void usage(char* pname)
 {
-  cerr
+  std::cerr
   << "Usage: " << pname << " [--initonly] [--noinit] [--directio]"
   <<                       " [--usemmap] [-p #] [-t #] [-b #] [-f name]\n\n"
   << " --help                      - This message\n"
@@ -65,9 +67,9 @@ static void usage(char* pname)
   << " --noinit                    - Use previously initialized file\n"
   << " --usemmap                   - Use mmap instead of umap\n"
   << " --shuffle                   - Shuffle memory accesses (instead of sequential access)\n"
-  << " -p # of pages               - default: " << NUMPAGES << endl
-  << " -t # of app threads         - default: " << NUMTHREADS << endl
-  << " -P # page size              - default: " << umapcfg_get_umap_page_size() << endl
+  << " -p # of pages               - default: " << NUMPAGES << std::endl
+  << " -t # of app threads         - default: " << NUMTHREADS << std::endl
+  << " -P # page size              - default: " << umapcfg_get_umap_page_size() << std::endl
   << " -F # of Filler Threads      - default: " << umapcfg_get_num_fillers() << " filler threads\n"
   << " -E # of Evictor Threads     - default: " << umapcfg_get_num_evictors() << " evictor threads\n"
   << " -R # of pages to read ahead - default: " << umapcfg_get_read_ahead() << " pages\n"
@@ -75,9 +77,10 @@ static void usage(char* pname)
   << " -L # integer percentage     - default: " << umapcfg_get_evict_low_water_threshold() << " percent full\n"
   << " -H # integer percentage     - default: " << umapcfg_get_evict_high_water_threshold() << " percent full\n"
   << " -a # pages to access        - default: 0 - access all pages\n"
+  << " -N # of files               - default: " << NUMFILES << std::endl
   << " -f [file name]              - backing file name.  Or file basename if multiple files\n"
   << " -d [directory name]         - backing directory name.  Or dir basename if multiple dirs\n"
-  ;
+  << std::endl;
   exit(1);
 }
 
@@ -98,6 +101,7 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
   testops->num_evictor_threads = umapcfg_get_num_evictors();
   testops->filename = FILENAME;
   testops->dirname = DIRNAME;
+  testops->numfiles = NUMFILES;
   testops->pagesize = umapcfg_get_umap_page_size();
   testops->readahead = umapcfg_get_read_ahead();
   testops->evict_lowater = umapcfg_get_evict_low_water_threshold();
@@ -114,7 +118,7 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
       {0,           0,            0,     0 }
     };
 
-    c = getopt_long(argc, argv, "p:t:f:b:d:L:H:F:E:R:a:P:", long_options, &option_index);
+    c = getopt_long(argc, argv, "p:t:f:b:d:L:H:F:E:R:a:P:N:", long_options, &option_index);
     if (c == -1)
       break;
 
@@ -142,6 +146,10 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
         goto R0;
       case 'p':
         if ((testops->numpages = strtoull(optarg, nullptr, 0)) > 0)
+          break;
+        goto R0;
+      case 'N':
+        if ((testops->numfiles = strtoull(optarg, nullptr, 0)) > 0)
           break;
         goto R0;
       case 't':
@@ -180,15 +188,15 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
   }
 
   if (testops->numpages < testops->pages_to_access) {
-    cerr << "Invalid -a argument " << testops->pages_to_access << "\n";
+    std::cerr << "Invalid -a argument " << testops->pages_to_access << "\n";
     usage(pname);
   }
 
   if (optind < argc) {
-    cerr << "Unknown Arguments: ";
+    std::cerr << "Unknown Arguments: ";
     while (optind < argc)
-      cerr << "\"" << argv[optind++] << "\" ";
-    cerr << endl;
+      std::cerr << "\"" << argv[optind++] << "\" ";
+    std::cerr << std::endl;
     usage(pname);
   }
 
