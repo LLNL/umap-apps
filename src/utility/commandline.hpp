@@ -69,17 +69,19 @@ static void usage(char* pname)
   << " --shuffle                   - Shuffle memory accesses (instead of sequential access)\n"
   << " -p # of pages               - default: " << NUMPAGES << std::endl
   << " -t # of app threads         - default: " << NUMTHREADS << std::endl
-  << " -P # page size              - default: " << umapcfg_get_umap_page_size() << std::endl
-  << " -F # of Filler Threads      - default: " << umapcfg_get_num_fillers() << " filler threads\n"
-  << " -E # of Evictor Threads     - default: " << umapcfg_get_num_evictors() << " evictor threads\n"
-  << " -R # of pages to read ahead - default: " << umapcfg_get_read_ahead() << " pages\n"
-  << " -b # page buffer size       - default: " << umapcfg_get_max_pages_in_buffer() << " Pages\n"
-  << " -L # integer percentage     - default: " << umapcfg_get_evict_low_water_threshold() << " percent full\n"
-  << " -H # integer percentage     - default: " << umapcfg_get_evict_high_water_threshold() << " percent full\n"
   << " -a # pages to access        - default: 0 - access all pages\n"
   << " -N # of files               - default: " << NUMFILES << std::endl
   << " -f [file name]              - backing file name.  Or file basename if multiple files\n"
   << " -d [directory name]         - backing directory name.  Or dir basename if multiple dirs\n"
+  << std::endl
+  << " Environment Variable Configuration (command line arguments obsolete):\n"
+  << " UMAP_PAGESIZE                   - currently: " << umapcfg_get_umap_page_size() << " bytes\n"
+  << " UMAP_PAGE_FILLERS               - currently: " << umapcfg_get_num_fillers() << " fillers\n"
+  << " UMAP_PAGE_EVICTORS              - currently: " << umapcfg_get_num_evictors() << " evictors\n"
+  << " UMAP_READ_AHEAD                 - currently: " << umapcfg_get_read_ahead() << " evictors\n"
+  << " UMAP_BUFSIZE                    - currently: " << umapcfg_get_max_pages_in_buffer() << " pages\n"
+  << " UMAP_EVICT_LOW_WATER_THRESHOLD  - currently: " << umapcfg_get_evict_low_water_threshold() << " percent full\n"
+  << " UMAP_EVICT_HIGH_WATER_THRESHOLD - currently: " << umapcfg_get_evict_high_water_threshold() << " percent full\n"
   << std::endl;
   exit(1);
 }
@@ -118,7 +120,7 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
       {0,           0,            0,     0 }
     };
 
-    c = getopt_long(argc, argv, "p:t:f:b:d:L:H:F:E:R:a:P:N:", long_options, &option_index);
+    c = getopt_long(argc, argv, "p:t:f:d:a:N:", long_options, &option_index);
     if (c == -1)
       break;
 
@@ -129,21 +131,6 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
 
         usage(pname);
         break;
-
-      case 'P':
-        if ((testops->pagesize = strtol(optarg, nullptr, 0)) > 0) {
-          umapcfg_set_umap_page_size(testops->pagesize);
-          break;
-        }
-        goto R0;
-      case 'L':
-        if ((testops->evict_lowater = strtoull(optarg, nullptr, 0)) > 0)
-          break;
-        goto R0;
-      case 'H':
-        if ((testops->evict_hiwater = strtoull(optarg, nullptr, 0)) > 0)
-          break;
-        goto R0;
       case 'p':
         if ((testops->numpages = strtoull(optarg, nullptr, 0)) > 0)
           break;
@@ -154,22 +141,6 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
         goto R0;
       case 't':
         if ((testops->numthreads = strtoull(optarg, nullptr, 0)) > 0)
-          break;
-        else goto R0;
-      case 'b':
-        if ((testops->bufsize = strtoull(optarg, nullptr, 0)) > 0)
-          break;
-        else goto R0;
-      case 'F':
-        if ((testops->num_filler_threads = strtoull(optarg, nullptr, 0)) > 0)
-          break;
-        else goto R0;
-      case 'R':
-        if ((testops->readahead = strtoull(optarg, nullptr, 0)) > 0)
-          break;
-        else goto R0;
-      case 'E':
-        if ((testops->num_evictor_threads = strtoull(optarg, nullptr, 0)) > 0)
           break;
         else goto R0;
       case 'a':
@@ -199,23 +170,6 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
     std::cerr << std::endl;
     usage(pname);
   }
-
-  if (testops->evict_lowater != umapcfg_get_evict_low_water_threshold())
-    umapcfg_set_evict_low_water_threshold(testops->evict_lowater);
-
-  if (testops->evict_hiwater != umapcfg_get_evict_high_water_threshold())
-    umapcfg_set_evict_high_water_threshold(testops->evict_hiwater);
-
-  if (testops->readahead != umapcfg_get_read_ahead())
-    umapcfg_set_read_ahead(testops->readahead);
-
-  if (testops->num_filler_threads != umapcfg_get_num_fillers())
-    umapcfg_set_num_fillers(testops->num_filler_threads);
-
-  if (testops->num_evictor_threads != umapcfg_get_num_evictors())
-    umapcfg_set_num_evictors(testops->num_evictor_threads);
-
-  umapcfg_set_max_pages_in_buffer(testops->bufsize);
 }
 
 long umt_getpagesize(void)
