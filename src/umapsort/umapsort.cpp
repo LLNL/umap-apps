@@ -39,64 +39,57 @@ void initdata(uint64_t *region, uint64_t rlen) {
     region[i] = (uint64_t) (rlen - i);
 }
 
-void validatedata(uint64_t *region, uint64_t rlen) {
-  if (sort_ascending == true) {
-#pragma omp parallel for
-    for(uint64_t i = 0; i < rlen; ++i) {
-        if (region[i] != (i+1)) {
-            fprintf(stderr, "Worker %d found an error at index %lu, %lu != lt %lu!\n",
-                            omp_get_thread_num(), i, region[i], i+1);
+void print_context(uint64_t i, uint64_t* region, uint64_t rlen) {
+  fprintf(stderr,
+      "Worker %d found an error at index %lu, %lu != lt %lu!\n",
+      omp_get_thread_num(), i, region[i], i+1);
 
-            if (i < 3) {
-                fprintf(stderr, "Context ");
-                for (int j=0; j < 7; j++) {
-                    fprintf(stderr, "%lu ", region[j]);
-                }
-                fprintf(stderr, "\n");
-            }
-            else if (i > (rlen-4)) {
-                fprintf(stderr, "Context ");
-                for (uint64_t j=rlen-8; j < rlen; j++) {
-                    fprintf(stderr, "%lu ", region[j]);
-                }
-                fprintf(stderr, "\n");
-            }
-            else {
-                fprintf(stderr,
-                    "Context i-3 i-2 i-1 i i+1 i+2 i+3:%lu %lu %lu %lu %lu %lu %lu\n",
-                    region[i-3], region[i-2], region[i-1], region[i], region[i+1], region[i+2], region[i+3]);
-            }
+  fprintf(stderr, "\tContext ");
+  if (i < 3) {
+    for (int j=0; j < 7; j++)
+      fprintf(stderr, "%lu ", region[j]);
+
+  }
+  else if (i > (rlen-4)) {
+    for (uint64_t j=rlen-8; j < rlen; j++)
+      fprintf(stderr, "%lu ", region[j]);
+    fprintf(stderr, "\n");
+  }
+  else {
+    fprintf(stderr,
+      "i-3 i-2 i-1 i i+1 i+2 i+3:%lu %lu %lu %lu %lu %lu %lu",
+        region[i-3], region[i-2], region[i-1], region[i]
+      , region[i+1], region[i+2], region[i+3]);
+  }
+  fprintf(stderr, "\n");
+  exit(1);
+}
+
+void validatedata(uint64_t *region, uint64_t rlen) {
+  bool failed = false;
+
+  if (sort_ascending == true) {
+#pragma omp parallel for private(failed)
+    for(uint64_t i = 0; i < rlen; ++i) {
+      if ( !failed && region[i] != (i+1) ) {
+#pragma omp critical
+        {
+          failed = true;
+          print_context(i, region, rlen);
         }
+      }
     }
   }
   else {
-#pragma omp parallel for
+#pragma omp parallel for private(failed)
     for(uint64_t i = 0; i < rlen; ++i) {
-        if(region[i] != (rlen - i)) {
-            fprintf(stderr, "Worker %d found an error at index %lu, %lu != %lu!\n",
-                            omp_get_thread_num(), i, region[i], (rlen - i));
-
-            if (i < 3) {
-                fprintf(stderr, "Context ");
-                for (int j=0; j < 7; j++) {
-                    fprintf(stderr, "%lu ", region[j]);
-                }
-                fprintf(stderr, "\n");
-            }
-            else if (i > (rlen-4)) {
-                fprintf(stderr, "Context ");
-                for (uint64_t j=rlen-8; j < rlen; j++) {
-                    fprintf(stderr, "%lu ", region[j]);
-                }
-                fprintf(stderr, "\n");
-            }
-            else {
-                fprintf(stderr,
-                    "Context i-3 i-2 i-1 i i+1 i+2 i+3:%lu %lu %lu %lu %lu %lu %lu\n",
-                    region[i-3], region[i-2], region[i-1], region[i], region[i+1], region[i+2], region[i+3]);
-            }
-            exit(1);
+      if ( !failed && region[i] != (rlen - i) ) {
+#pragma omp critical
+        {
+          failed = true;
+          print_context(i, region, rlen);
         }
+      }
     }
   }
 }
