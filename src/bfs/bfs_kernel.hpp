@@ -53,7 +53,7 @@ void print_omp_configuration() {
   int chunk_size;
   ::omp_get_schedule(&kind, &chunk_size);
   std::cout << "OpenMP schedule = " << utility::omp_schedule_kind_name(kind)
-            << ", chunk_size" << chunk_size << std::endl;
+            << ", chunk_size " << chunk_size << std::endl;
 #else
   std::cout << "Run with a single thread" << std::endl;
 #endif
