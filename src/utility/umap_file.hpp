@@ -27,12 +27,23 @@
 
 namespace utility {
 
+ssize_t get_umap_page_size() {
+  const ssize_t page_size = umapcfg_get_umap_page_size();
+  if (page_size == -1) {
+    ::perror("umapcfg_get_umap_page_size failed");
+    std::cerr << "errno: " << errno << std::endl;
+  }
+
+  return page_size;
+}
+
 void* map_in_file(
     std::string filename,
     bool initonly,
     bool noinit,
     bool usemmap,
-    uint64_t numbytes)
+    uint64_t numbytes,
+    void* start_addr)
 {
   int o_opts = O_RDWR | O_LARGEFILE | O_DIRECT;
   void* region = NULL;
@@ -85,7 +96,12 @@ void* map_in_file(
   const int prot = PROT_READ|PROT_WRITE;
 
   if ( usemmap ) {
-    region = mmap(NULL, numbytes, prot, MAP_SHARED | MAP_NORESERVE, fd, 0);
+    int flags = MAP_SHARED | MAP_NORESERVE;
+
+    if (start_addr != nullptr)
+      flags |= MAP_FIXED;
+
+    region = mmap(start_addr, numbytes, prot, flags, fd, 0);
     if (region == MAP_FAILED) {
       std::ostringstream ss;
       ss << "mmap of " << numbytes << " bytes failed for " << filename << ": ";
@@ -96,7 +112,10 @@ void* map_in_file(
   else {
     int flags = UMAP_PRIVATE;
 
-    region = umap(NULL, numbytes, prot, flags, fd, 0);
+    if (start_addr != nullptr)
+      flags |= MAP_FIXED;
+
+    region = umap(start_addr, numbytes, prot, flags, fd, 0);
     if ( region == UMAP_FAILED ) {
         std::ostringstream ss;
         ss << "umap_mf of " << numbytes
@@ -107,6 +126,15 @@ void* map_in_file(
   }
 
   return region;
+}
+
+void* map_in_file(
+    std::string filename,
+    bool initonly,
+    bool noinit,
+    bool usemmap,
+    uint64_t numbytes) {
+  return map_in_file(filename, initonly, noinit, usemmap, numbytes, NULL);
 }
 
 void unmap_file(bool usemmap, uint64_t numbytes, void* region)

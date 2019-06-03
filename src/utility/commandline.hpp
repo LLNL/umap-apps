@@ -33,10 +33,16 @@ typedef struct {
   int shuffle;
 
   long pagesize;
+  uint64_t bufsize;
   uint64_t numpages;
   uint64_t numthreads;
-  uint64_t bufsize;
-  uint64_t uffdthreads;
+  int64_t  numfiles;
+  uint64_t num_filler_threads;
+  uint64_t num_evictor_threads;
+  uint64_t readahead;
+  uint64_t evict_hiwater;
+  uint64_t evict_lowater;
+
   uint64_t pages_to_access;  // 0 (default) - access all pages
   char const* filename; // file name or basename
   char const* dirname; // dir name or basename
@@ -47,27 +53,36 @@ static char const* FILENAME = "abc";
 const uint64_t NUMPAGES = 10000000;
 const uint64_t NUMTHREADS = 2;
 const uint64_t BUFFERSIZE = 16;
+const int64_t NUMFILES = 1;
 
 using namespace std;
 
 static void usage(char* pname)
 {
-  cerr
+  std::cerr
   << "Usage: " << pname << " [--initonly] [--noinit] [--directio]"
   <<                       " [--usemmap] [-p #] [-t #] [-b #] [-f name]\n\n"
-  << " --help                 - This message\n"
-  << " --initonly             - Initialize file, then stop\n"
-  << " --noinit               - Use previously initialized file\n"
-  << " --usemmap              - Use mmap instead of umap\n"
-  << " --shuffle              - Shuffle memory accesses (instead of sequential access)\n"
-  << " -p # of pages          - default: " << NUMPAGES << endl
-  << " -t # of threads        - default: " << NUMTHREADS << endl
-  << " -u # of uffd threads   - default: " << umap_cfg_get_uffdthreads() << " worker threads\n"
-  << " -b # page buffer size  - default: " << umap_cfg_get_bufsize() << " Pages\n"
-  << " -a # pages to access   - default: 0 - access all pages\n"
-  << " -f [file name]         - backing file name.  Or file basename if multiple files\n"
-  << " -d [directory name]    - backing directory name.  Or dir basename if multiple dirs\n"
-  << " -P # page size         - default: " << umap_cfg_get_pagesize() << endl;
+  << " --help                      - This message\n"
+  << " --initonly                  - Initialize file, then stop\n"
+  << " --noinit                    - Use previously initialized file\n"
+  << " --usemmap                   - Use mmap instead of umap\n"
+  << " --shuffle                   - Shuffle memory accesses (instead of sequential access)\n"
+  << " -p # of pages               - default: " << NUMPAGES << std::endl
+  << " -t # of app threads         - default: " << NUMTHREADS << std::endl
+  << " -a # pages to access        - default: 0 - access all pages\n"
+  << " -N # of files               - default: " << NUMFILES << std::endl
+  << " -f [file name]              - backing file name.  Or file basename if multiple files\n"
+  << " -d [directory name]         - backing directory name.  Or dir basename if multiple dirs\n"
+  << std::endl
+  << " Environment Variable Configuration (command line arguments obsolete):\n"
+  << " UMAP_PAGESIZE                   - currently: " << umapcfg_get_umap_page_size() << " bytes\n"
+  << " UMAP_PAGE_FILLERS               - currently: " << umapcfg_get_num_fillers() << " fillers\n"
+  << " UMAP_PAGE_EVICTORS              - currently: " << umapcfg_get_num_evictors() << " evictors\n"
+  << " UMAP_READ_AHEAD                 - currently: " << umapcfg_get_read_ahead() << " evictors\n"
+  << " UMAP_BUFSIZE                    - currently: " << umapcfg_get_max_pages_in_buffer() << " pages\n"
+  << " UMAP_EVICT_LOW_WATER_THRESHOLD  - currently: " << umapcfg_get_evict_low_water_threshold() << " percent full\n"
+  << " UMAP_EVICT_HIGH_WATER_THRESHOLD - currently: " << umapcfg_get_evict_high_water_threshold() << " percent full\n"
+  << std::endl;
   exit(1);
 }
 
@@ -83,11 +98,16 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
   testops->pages_to_access = 0;
   testops->numpages = NUMPAGES;
   testops->numthreads = NUMTHREADS;
-  testops->bufsize = umap_cfg_get_bufsize();
-  testops->uffdthreads = umap_cfg_get_uffdthreads();
+  testops->bufsize = umapcfg_get_max_pages_in_buffer();
+  testops->num_filler_threads = umapcfg_get_num_fillers();
+  testops->num_evictor_threads = umapcfg_get_num_evictors();
   testops->filename = FILENAME;
   testops->dirname = DIRNAME;
-  testops->pagesize = umap_cfg_get_pagesize();
+  testops->numfiles = NUMFILES;
+  testops->pagesize = umapcfg_get_umap_page_size();
+  testops->readahead = umapcfg_get_read_ahead();
+  testops->evict_lowater = umapcfg_get_evict_low_water_threshold();
+  testops->evict_hiwater = umapcfg_get_evict_high_water_threshold();
 
   while (1) {
     int option_index = 0;
@@ -100,7 +120,7 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
       {0,           0,            0,     0 }
     };
 
-    c = getopt_long(argc, argv, "p:t:f:b:d:u:a:P:", long_options, &option_index);
+    c = getopt_long(argc, argv, "p:t:f:d:a:N:", long_options, &option_index);
     if (c == -1)
       break;
 
@@ -111,29 +131,16 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
 
         usage(pname);
         break;
-
-      case 'P':
-        if ((testops->pagesize = strtol(optarg, nullptr, 0)) > 0) {
-          if (umap_cfg_set_pagesize(testops->pagesize) < 0) {
-            goto R0;
-          }
-          break;
-        }
-        goto R0;
       case 'p':
         if ((testops->numpages = strtoull(optarg, nullptr, 0)) > 0)
           break;
         goto R0;
+      case 'N':
+        if ((testops->numfiles = strtoull(optarg, nullptr, 0)) > 0)
+          break;
+        goto R0;
       case 't':
         if ((testops->numthreads = strtoull(optarg, nullptr, 0)) > 0)
-          break;
-        else goto R0;
-      case 'b':
-        if ((testops->bufsize = strtoull(optarg, nullptr, 0)) > 0)
-          break;
-        else goto R0;
-      case 'u':
-        if ((testops->uffdthreads = strtoull(optarg, nullptr, 0)) > 0)
           break;
         else goto R0;
       case 'a':
@@ -152,34 +159,22 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
   }
 
   if (testops->numpages < testops->pages_to_access) {
-    cerr << "Invalid -a argument " << testops->pages_to_access << "\n";
+    std::cerr << "Invalid -a argument " << testops->pages_to_access << "\n";
     usage(pname);
   }
 
   if (optind < argc) {
-    cerr << "Unknown Arguments: ";
+    std::cerr << "Unknown Arguments: ";
     while (optind < argc)
-      cerr << "\"" << argv[optind++] << "\" ";
-    cerr << endl;
+      std::cerr << "\"" << argv[optind++] << "\" ";
+    std::cerr << std::endl;
     usage(pname);
   }
-
-  /*
-   * Note: Care must be taken when configuring the number of threads
-   * and the buffer size of umap.  When the buffer size is set, it
-   * apportions the buffer evenly to the umap threads.  So setting the
-   * buffer size requires that the number of threads be set properly
-   * first.
-   */
-  if (testops->uffdthreads != umap_cfg_get_uffdthreads())
-    umap_cfg_set_uffdthreads(testops->uffdthreads);
-
-  umap_cfg_set_bufsize(testops->bufsize);
 }
 
 long umt_getpagesize(void)
 {
-  return umap_cfg_get_pagesize();
+  return umapcfg_get_umap_page_size();
 }
 }
 #endif // _COMMANDLING_HPP
