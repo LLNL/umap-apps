@@ -19,55 +19,113 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string>
 #include <fstream>
 
+#include "umap/umap.h"
 #include "bfs_kernel.hpp"
+#include "../utility/umap_file.hpp"
 #include "../utility/bitmap.hpp"
-#include "../utility/mmap.hpp"
 #include "../utility/time.hpp"
+#include "../utility/file.hpp"
+
+struct bfs_options {
+  size_t num_vertices{0};
+  size_t num_edges{0};
+  std::string graph_file_name;
+  bool use_mmap{false};
+};
+
+void disp_umap_env_variables() {
+  std::cout
+      << "Environment Variable Configuration (command line arguments obsolete):\n"
+      << "UMAP_PAGESIZE                   - currently: " << umapcfg_get_umap_page_size() << " bytes\n"
+      << "UMAP_PAGE_FILLERS               - currently: " << umapcfg_get_num_fillers() << " fillers\n"
+      << "UMAP_PAGE_EVICTORS              - currently: " << umapcfg_get_num_evictors() << " evictors\n"
+      << "UMAP_READ_AHEAD                 - currently: " << umapcfg_get_read_ahead() << " evictors\n"
+      << "UMAP_BUFSIZE                    - currently: " << umapcfg_get_max_pages_in_buffer() << " pages\n"
+      << "UMAP_EVICT_LOW_WATER_THRESHOLD  - currently: " << umapcfg_get_evict_low_water_threshold() << " percent full\n"
+      << "UMAP_EVICT_HIGH_WATER_THRESHOLD - currently: " << umapcfg_get_evict_high_water_threshold()
+      << " percent full\n"
+      << std::endl;
+}
+
+void usage() {
+  std::cout << "BFS options:"
+            << "-n\t#vertices\n"
+            << "-m\t#edges\n"
+            << "-g\tGraph file name\n"
+            << "-s\tUse system mmap" << std::endl;
+
+  disp_umap_env_variables();
+}
 
 void parse_options(int argc, char **argv,
-                   size_t &num_vertices, size_t &num_edges,
-                   std::string &graph_file_name) {
-  num_vertices = 0;
-  num_edges = 0;
-  graph_file_name = "";
-
+                   bfs_options &options) {
   int c;
-  while ((c = getopt(argc, argv, "n:m:g:h")) != -1) {
+  while ((c = getopt(argc, argv, "n:m:g:sh")) != -1) {
     switch (c) {
       case 'n': /// Required
-        num_vertices = std::stoull(optarg);
+        options.num_vertices = std::stoull(optarg);
         break;
 
       case 'm': /// Required
-        num_edges = std::stoull(optarg);
+        options.num_edges = std::stoull(optarg);
         break;
 
       case 'g': /// Required
-        graph_file_name = optarg;
+        options.graph_file_name = optarg;
         break;
 
-      case 'h':
-        // usage();
+      case 's':options.use_mmap = true;
         break;
+
+      case 'h':usage();
+        std::exit(0);
     }
   }
 }
 
-std::pair<uint64_t *, uint64_t *>
-map_graph(const size_t num_vertices, const size_t num_edges, const std::string &graph_file_name) {
-  const size_t graph_size = (num_vertices + 1 + num_edges) * sizeof(uint64_t);
+void disp_bfs_options(const bfs_options &options) {
+  std::cout << "BFS options:"
+            << "\n#vertices: " << options.num_vertices
+            << "\n#edges: " << options.num_edges
+            << "\nGraph file: " << options.graph_file_name
+            << "\nUse system mmap: " << options.use_mmap << std::endl;
+}
 
-  int fd = -1;
-  void *map_raw_address = nullptr;
-  std::tie(fd, map_raw_address) = utility::map_file_read_mode(graph_file_name, nullptr, graph_size, 0);
-  if (fd == -1 || map_raw_address == nullptr) {
+size_t calculate_umap_pagesize_aligned_graph_file_size(const size_t num_vertices, const size_t num_edges) {
+  const size_t original_size = (num_vertices + 1 + num_edges) * sizeof(uint64_t);
+  const size_t umap_page_size = umapcfg_get_umap_page_size();
+  const size_t aligned_graph_size = (original_size % umap_page_size == 0)
+                                    ? original_size
+                                    : (original_size + (umap_page_size - original_size % umap_page_size));
+  return aligned_graph_size;
+}
+
+std::pair<uint64_t *, uint64_t *>
+map_graph(const bfs_options &options) {
+
+  // Umap requires a pagesize aligned file
+  if (!options.use_mmap) {
+    const size_t size = calculate_umap_pagesize_aligned_graph_file_size(options.num_vertices, options.num_edges);
+    if (!utility::extend_file_size(options.graph_file_name, size)) {
+      std::cerr << "Failed to extend the graph file to " << size << std::endl;
+      std::abort();
+    }
+  }
+
+  void *const map_raw_address = utility::map_in_file(options.graph_file_name,
+                                                     false,
+                                                     true,
+                                                     options.use_mmap,
+                                                     utility::get_file_size(options.graph_file_name),
+                                                     nullptr);
+  if (!map_raw_address) {
     std::cerr << "Failed to map the graph" << std::endl;
     std::abort();
   }
 
-  uint64_t *index = static_cast<uint64_t *>(map_raw_address);
-  const std::ptrdiff_t edges_offset = num_vertices + 1;
-  uint64_t *edges = static_cast<uint64_t *>(map_raw_address) + edges_offset;
+  uint64_t *const index = static_cast<uint64_t *>(map_raw_address);
+  const uint64_t edges_offset = options.num_vertices + 1;
+  uint64_t *const edges = static_cast<uint64_t *>(map_raw_address) + edges_offset;
 
   return std::make_pair(index, edges);
 }
@@ -104,28 +162,35 @@ void count_level(const size_t num_vertices, const uint16_t max_level, const uint
 }
 
 int main(int argc, char **argv) {
-  size_t num_vertices;
-  size_t num_edges;
-  std::string graph_file_name;
+  bfs_options options;
 
-  parse_options(argc, argv, num_vertices, num_edges, graph_file_name);
+  parse_options(argc, argv, options);
+  disp_bfs_options(options);
+  if (!options.use_mmap) disp_umap_env_variables();
 
   const uint64_t *index = nullptr;
   const uint64_t *edges = nullptr;
-  std::tie(index, edges) = map_graph(num_vertices, num_edges, graph_file_name);
+  std::tie(index, edges) = map_graph(options);
 
-  std::vector<uint16_t> level(num_vertices); // Array to store each vertex's level (a distance from the source vertex)
-  std::vector<uint64_t> visited_filter(utility::bitmap_size(num_vertices)); // bitmap data to store 'visited' information
+  // Array to store each vertex's level (a distance from the source vertex)
+  std::vector<uint16_t> level(options.num_vertices);
 
-  bfs::init_bfs(num_vertices, level.data(), visited_filter.data());
-  find_bfs_root(num_vertices, index, level.data());
+  // bitmap data to store 'visited' information
+  std::vector<uint64_t> visited_filter(utility::bitmap_size(options.num_vertices));
+
+  bfs::init_bfs(options.num_vertices, level.data(), visited_filter.data());
+  find_bfs_root(options.num_vertices, index, level.data());
 
   const auto bfs_start_time = utility::elapsed_time_sec();
-  const uint16_t max_level = bfs::run_bfs(num_vertices, index, edges, level.data(), visited_filter.data());
+  const uint16_t max_level = bfs::run_bfs(options.num_vertices, index, edges, level.data(), visited_filter.data());
   const auto bfs_time = utility::elapsed_time_sec(bfs_start_time);
   std::cout << "BFS took (s) " << bfs_time << std::endl;
-  
-  count_level(num_vertices, max_level, level.data());
+
+  count_level(options.num_vertices, max_level, level.data());
+
+  utility::unmap_file(options.use_mmap,
+                      utility::get_file_size(options.graph_file_name),
+                      const_cast<uint64_t *>(index));
 
   return 0;
 }
