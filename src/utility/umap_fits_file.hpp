@@ -86,7 +86,7 @@ struct Cube {
 
 static std::unordered_map<void*, Cube*>  Cubes;
 
-class CfitsStoreFile : public Store {
+class CfitsStoreFile : public Umap::Store {
   public:
     CfitsStoreFile(Cube* _cube_, size_t _rsize_, size_t _aligned_size)
       : cube{_cube_}, rsize{_rsize_}, aligned_size{_aligned_size}{}
@@ -174,7 +174,7 @@ void* PerFits_alloc_cube(
   }
 
   // Make sure that our cube is padded if necessary to be page aligned
-  
+
   size_t psize = utility::umt_getpagesize();
   long remainder = cube->cube_size % psize;
 
@@ -187,7 +187,7 @@ void* PerFits_alloc_cube(
   const int prot = PROT_READ|PROT_WRITE;
   int flags = UMAP_PRIVATE;
 
-  cstore->region = umap_ex(NULL, cube->cube_size, prot, flags, 0, 0, cstore);
+  cstore->region = Umap::umap_ex(NULL, cube->cube_size, prot, flags, 0, 0, cstore);
   if ( cstore->region == UMAP_FAILED ) {
       ostringstream ss;
       ss << "umap of " << cube->cube_size << " bytes failed for Cube";
