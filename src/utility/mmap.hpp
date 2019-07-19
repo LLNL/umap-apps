@@ -31,7 +31,7 @@ namespace utility {
 
 /// \brief Get the page size
 /// \return The size of page size. Return -1 for error cases.
-ssize_t get_page_size() {
+inline ssize_t get_page_size() {
   const ssize_t page_size = ::sysconf(_SC_PAGE_SIZE);
   if (page_size == -1) {
     ::perror("sysconf(_SC_PAGE_SIZE)");
@@ -50,7 +50,7 @@ ssize_t get_page_size() {
 /// \param offset  Same as mmap(2)
 /// \return On success, returns a pointer to the mapped area.
 /// On error, nullptr is returned.
-void *map_file(void *const addr, const size_t length, const int protection, const int flags,
+inline void *map_file(void *const addr, const size_t length, const int protection, const int flags,
                const int fd, const off_t offset) {
   const ssize_t page_size = get_page_size();
   if (page_size == -1) {
@@ -93,7 +93,7 @@ void *map_file(void *const addr, const size_t length, const int protection, cons
 /// \param offset The offset in the file
 /// \return On Success, returns a pair of the file descriptor of the file and the starting address for the map.
 /// On error, returns a pair of -1 and nullptr.
-std::pair<int, void *> map_file_read_mode(const std::string &file_name, void *const addr,
+inline std::pair<int, void *> map_file_read_mode(const std::string &file_name, void *const addr,
                                           const size_t length, const off_t offset,
                                           const int additional_flags = 0) {
   /// ----- Open the file ----- ///
@@ -121,7 +121,7 @@ std::pair<int, void *> map_file_read_mode(const std::string &file_name, void *co
 /// \param offset The offset in the file
 /// \return On Success, returns a pair of the file descriptor of the file and the starting address for the map.
 /// On error, returns a pair of -1 and nullptr.
-std::pair<int, void *> map_file_write_mode(const std::string &file_name, void *const addr,
+inline std::pair<int, void *> map_file_write_mode(const std::string &file_name, void *const addr,
                                            const size_t length, const off_t offset,
                                            const int additional_flags = 0) {
   /// ----- Open the file ----- ///
@@ -142,14 +142,14 @@ std::pair<int, void *> map_file_write_mode(const std::string &file_name, void *c
   return std::make_pair(fd, mapped_addr);
 }
 
-void msync(void *const addr, const size_t length) {
+inline void msync(void *const addr, const size_t length) {
   if (::msync(addr, length, MS_SYNC) != 0) {
     ::perror("msync");
     std::cerr << "errno: " << errno << std::endl;
   }
 }
 
-void munmap(void *const addr, const size_t length, const bool call_msync) {
+inline void munmap(void *const addr, const size_t length, const bool call_msync) {
   if (call_msync) msync(addr, length);
 
   if (::munmap(addr, length) != 0) {
