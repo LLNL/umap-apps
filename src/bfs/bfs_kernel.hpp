@@ -23,7 +23,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #endif
 
 #include "../utility/bitmap.hpp"
-#include "../utility/mmap.hpp"
 #include "../utility/open_mp.hpp"
 
 namespace bfs {

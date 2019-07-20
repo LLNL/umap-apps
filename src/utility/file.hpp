@@ -23,9 +23,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <iostream>
 #include <string>
+#include <fstream>
 
 namespace utility {
-void extend_file_size_manually(const int fd, const size_t file_size) {
+inline void extend_file_size_manually(const int fd, const size_t file_size) {
   auto buffer = new unsigned char[4096];
   for (off_t i = 0; i < file_size / 4096; ++i) {
     ::pwrite(fd, buffer, 4096, i * 4096);
@@ -38,7 +39,7 @@ void extend_file_size_manually(const int fd, const size_t file_size) {
   delete[] buffer;
 }
 
-bool extend_file_size(const int fd, const size_t file_size) {
+inline bool extend_file_size(const int fd, const size_t file_size) {
   /// -----  extend the file if its size is smaller than that of mapped area ----- ///
 #ifdef __linux__
   struct stat statbuf;
@@ -61,7 +62,7 @@ bool extend_file_size(const int fd, const size_t file_size) {
   return true;
 }
 
-bool extend_file_size(const std::string &file_name, const size_t file_size) {
+inline bool extend_file_size(const std::string &file_name, const size_t file_size) {
   const int fd = ::open(file_name.c_str(), O_RDWR);
   if (fd == -1) {
     ::perror("open");
@@ -75,7 +76,7 @@ bool extend_file_size(const std::string &file_name, const size_t file_size) {
   return true;
 }
 
-bool create_file(const std::string &file_name) {
+inline bool create_file(const std::string &file_name) {
   const int fd = ::open(file_name.c_str(), O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
   if (fd == -1) {
     ::perror("open");
@@ -85,6 +86,16 @@ bool create_file(const std::string &file_name) {
   ::close(fd);
 
   return true;
+}
+
+inline ssize_t get_file_size(const std::string &file_name) {
+  std::ifstream ifs(file_name, std::ifstream::binary | std::ifstream::ate);
+  ssize_t size = ifs.tellg();
+  if (size == -1) {
+    std::cerr << "Failed to get file size: " << file_name << std::endl;
+  }
+
+  return size;
 }
 }  // namespace utility
 

@@ -22,7 +22,7 @@ namespace utility
 
 /// examples
 /// input 1 ~ 64 -> return 1;  input 65 ~ 128 -> return 2
-constexpr size_t bitmap_size(const size_t size)
+inline constexpr size_t bitmap_size(const size_t size)
 {
   return (size == 0) ? 0 :
          (size - 1ULL) / (sizeof(uint64_t) * 8ULL) + 1ULL;
@@ -30,22 +30,22 @@ constexpr size_t bitmap_size(const size_t size)
 
 /// examples
 /// input 0 ~ 63 -> return 0; input 64 ~ 127 -> return 1;
-constexpr uint64_t bitmap_global_pos(const uint64_t pos)
+inline constexpr uint64_t bitmap_global_pos(const uint64_t pos)
 {
   return (pos >> 6ULL);
 }
 
-constexpr uint64_t bitmap_local_pos(const uint64_t pos)
+inline constexpr uint64_t bitmap_local_pos(const uint64_t pos)
 {
   return pos & 0x3FULL;
 }
 
-bool get_bit(const uint64_t* const bitmap, const uint64_t pos)
+inline bool get_bit(const uint64_t* const bitmap, const uint64_t pos)
 {
   return static_cast<bool>(bitmap[bitmap_global_pos(pos)] & (0x1ULL << bitmap_local_pos(pos)));
 }
 
-void set_bit(uint64_t* const bitmap, const uint64_t pos)
+inline void set_bit(uint64_t* const bitmap, const uint64_t pos)
 {
   bitmap[bitmap_global_pos(pos)] |= 0x1ULL << bitmap_local_pos(pos);
 }
