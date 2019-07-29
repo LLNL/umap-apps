@@ -41,7 +41,7 @@
 #include "fitsio.h"
 
 #include "../utility/commandline.hpp"
-#include "umap/Store.h"
+#include "umap/store/Store.hpp"
 
 namespace utility {
 namespace umap_fits_file {
@@ -59,6 +59,7 @@ struct Tile_File {
   std::string fname;
   std::size_t tile_start;
   std::size_t tile_size;
+  std::size_t pgaligned_tile_start;
 };
 
 class Tile {
@@ -273,18 +274,18 @@ Tile::Tile(const std::string& _fn)
   file.tile_start = (size_t)datastart;
   file.tile_size = (size_t)(dim.xDim * dim.yDim * dim.elem_size);
 
-  std::size_t pgaligned_tile_start = file.tile_start & ~(4096-1);
-  map_start = file.tile_start - pgaligned_tile_start;
+  file.pgaligned_tile_start = file.tile_start & ~(4096-1);
+  map_start = file.tile_start - file.pgaligned_tile_start;
   map_size = file.tile_size + map_start;
-  if ( ( map = mmap(0, map_size, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, file.fd, pgaligned_tile_start) ) == 0 ) {
-    perror(file.fname.c_str());
-    exit(-1);
-  }
+//   if ( ( map = mmap(0, map_size, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, file.fd, file.pgaligned_tile_start) ) == 0 ) {
+//     perror(file.fname.c_str());
+//     exit(-1);
+//   }
 
   // Set some advice flags to minimize unwanted buffering and read-ahead on
   // sparse data accesses
-  posix_fadvise(file.fd, pgaligned_tile_start, map_size, POSIX_FADV_RANDOM);
-  madvise(map, map_size, MADV_RANDOM | MADV_DONTDUMP);
+  posix_fadvise(file.fd, file.pgaligned_tile_start, map_size, POSIX_FADV_RANDOM);
+//   madvise(map, map_size, MADV_RANDOM | MADV_DONTDUMP);
 
   assert( (dataend - datastart) >= (dim.xDim * dim.yDim * dim.elem_size) );
 }
@@ -300,9 +301,11 @@ ssize_t Tile::buffered_read(void* request_buf, std::size_t request_size, off_t r
     eof = req_end - map_size;
   }
 
-  void* request = &((char*)map)[request_offset];
-  memcpy(request_buf, request, ua_request_size - eof);
-  madvise(request, request_size*2, MADV_DONTNEED);
+//   void* request = &((char*)map)[request_offset];
+//   memcpy(request_buf, request, ua_request_size - eof);
+//   madvise(request, request_size*2, MADV_DONTNEED);
+
+  pread(file.fd, request_buf, ua_request_size - eof, file.pgaligned_tile_start);
   // Realign the data in the request buffer.
   // TODO: Find a better way to fix this.
   // This is a hack that relies on the fact that copy_buf passed in by
