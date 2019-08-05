@@ -41,9 +41,10 @@ used_gcc_version() {
 run() {
   # ---- Generate output file name ---- #
   if [ $usemmap -eq 1 ]; then
-    USE_MMAP=" -s "
+    ADDITIONAL_OPTION=" -s " # use system mmap
     out_file="${out_file_prefix}_m${usemmap}_t${num_app_threads}_ra${read_ahead_size}.log"
   else
+    ADDITIONAL_OPTION=""
     out_file="${out_file_prefix}_m${usemmap}_t${num_app_threads}_f${umap_page_fillers}_e${umap_page_evictors}_h${umap_high_evict}_l${umap_low_evict}_p${umap_page_size}_r${umap_read_ahead}.log"
   fi
   date | tee ${out_file}
@@ -70,7 +71,7 @@ run() {
   echo "OMP_NUM_THREADS=${OMP_NUM_THREADS}" |& tee -a ${out_file}
 
   # ---- Run the benchmark ---- #
-  execute_command env OMP_SCHEDULE=static ./run_bfs ${base_bench_options} ${USE_MMAP}
+  execute_command env OMP_SCHEDULE=static ./run_bfs ${base_bench_options} ${ADDITIONAL_OPTION}
   echo "" |& tee -a ${out_file}
 
   date | tee -a ${out_file}

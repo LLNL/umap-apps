@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "../utility/bitmap.hpp"
 #include "../utility/time.hpp"
 #include "../utility/file.hpp"
+#include "../utility/mmap.hpp"
 
 struct bfs_options {
   size_t num_vertices{0};
@@ -39,7 +40,7 @@ void disp_umap_env_variables() {
       << "UMAP_PAGESIZE                   - currently: " << umapcfg_get_umap_page_size() << " bytes\n"
       << "UMAP_PAGE_FILLERS               - currently: " << umapcfg_get_num_fillers() << " fillers\n"
       << "UMAP_PAGE_EVICTORS              - currently: " << umapcfg_get_num_evictors() << " evictors\n"
-      << "UMAP_READ_AHEAD                 - currently: " << umapcfg_get_read_ahead() << " evictors\n"
+      << "UMAP_READ_AHEAD                 - currently: " << umapcfg_get_read_ahead() << " pages\n"
       << "UMAP_BUFSIZE                    - currently: " << umapcfg_get_max_pages_in_buffer() << " pages\n"
       << "UMAP_EVICT_LOW_WATER_THRESHOLD  - currently: " << umapcfg_get_evict_low_water_threshold() << " percent full\n"
       << "UMAP_EVICT_HIGH_WATER_THRESHOLD - currently: " << umapcfg_get_evict_high_water_threshold()
@@ -161,12 +162,21 @@ void count_level(const size_t num_vertices, const uint16_t max_level, const uint
   }
 }
 
+void print_num_page_faults() {
+  const auto num_page_faults = utility::get_num_page_faults();
+  std::cout << "#of minor page faults\t" << num_page_faults.first << std::endl;
+  std::cout << "#of major page faults\t" << num_page_faults.second << std::endl;
+}
+
 int main(int argc, char **argv) {
   bfs_options options;
 
   parse_options(argc, argv, options);
   disp_bfs_options(options);
   if (!options.use_mmap) disp_umap_env_variables();
+
+  std::cout << "Initial #of page faults" << std::endl;
+  print_num_page_faults();
 
   const uint64_t *index = nullptr;
   const uint64_t *edges = nullptr;
@@ -181,10 +191,14 @@ int main(int argc, char **argv) {
   bfs::init_bfs(options.num_vertices, level.data(), visited_filter.data());
   find_bfs_root(options.num_vertices, index, level.data());
 
+  std::cout << "Before BFS #of page faults" << std::endl;
+  print_num_page_faults();
   const auto bfs_start_time = utility::elapsed_time_sec();
   const uint16_t max_level = bfs::run_bfs(options.num_vertices, index, edges, level.data(), visited_filter.data());
   const auto bfs_time = utility::elapsed_time_sec(bfs_start_time);
-  std::cout << "BFS took (s) " << bfs_time << std::endl;
+  std::cout << "BFS took (s)\t" << bfs_time << std::endl;
+  std::cout << "After BFS #of page faults" << std::endl;
+  print_num_page_faults();
 
   count_level(options.num_vertices, max_level, level.data());
 
