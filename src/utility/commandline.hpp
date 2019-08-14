@@ -79,7 +79,8 @@ static void usage(char* pname)
   << " UMAP_PAGE_FILLERS               - currently: " << umapcfg_get_num_fillers() << " fillers\n"
   << " UMAP_PAGE_EVICTORS              - currently: " << umapcfg_get_num_evictors() << " evictors\n"
   << " UMAP_READ_AHEAD                 - currently: " << umapcfg_get_read_ahead() << " evictors\n"
-  << " UMAP_BUFSIZE                    - currently: " << umapcfg_get_max_pages_in_buffer() << " pages\n"
+  << " UMAP_PAGES_PER_BUFFER           - currently: " << umapcfg_get_pages_per_buffer() << " pages\n"
+  << " UMAP_NUMBER_OF_BUFFERS          - currently: " << umapcfg_get_number_of_buffers() << std::endl
   << " UMAP_EVICT_LOW_WATER_THRESHOLD  - currently: " << umapcfg_get_evict_low_water_threshold() << " percent full\n"
   << " UMAP_EVICT_HIGH_WATER_THRESHOLD - currently: " << umapcfg_get_evict_high_water_threshold() << " percent full\n"
   << std::endl;
@@ -98,7 +99,7 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
   testops->pages_to_access = 0;
   testops->numpages = NUMPAGES;
   testops->numthreads = NUMTHREADS;
-  testops->bufsize = umapcfg_get_max_pages_in_buffer();
+  testops->bufsize = umapcfg_get_pages_per_buffer();
   testops->num_filler_threads = umapcfg_get_num_fillers();
   testops->num_evictor_threads = umapcfg_get_num_evictors();
   testops->filename = FILENAME;

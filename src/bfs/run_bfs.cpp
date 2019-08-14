@@ -40,8 +40,9 @@ void disp_umap_env_variables() {
       << "UMAP_PAGESIZE                   - currently: " << umapcfg_get_umap_page_size() << " bytes\n"
       << "UMAP_PAGE_FILLERS               - currently: " << umapcfg_get_num_fillers() << " fillers\n"
       << "UMAP_PAGE_EVICTORS              - currently: " << umapcfg_get_num_evictors() << " evictors\n"
-      << "UMAP_READ_AHEAD                 - currently: " << umapcfg_get_read_ahead() << " pages\n"
-      << "UMAP_BUFSIZE                    - currently: " << umapcfg_get_max_pages_in_buffer() << " pages\n"
+      << "UMAP_READ_AHEAD                 - currently: " << umapcfg_get_read_ahead() << " evictors\n"
+      << "UMAP_PAGES_PER_BUFFER           - currently: " << umapcfg_get_pages_per_buffer() << " pages\n"
+      << "UMAP_NUMBER_OF_BUFFERS          - currently: " << umapcfg_get_number_of_buffers() << std::endl
       << "UMAP_EVICT_LOW_WATER_THRESHOLD  - currently: " << umapcfg_get_evict_low_water_threshold() << " percent full\n"
       << "UMAP_EVICT_HIGH_WATER_THRESHOLD - currently: " << umapcfg_get_evict_high_water_threshold()
       << " percent full\n"
