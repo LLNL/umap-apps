@@ -158,6 +158,29 @@ inline void munmap(void *const addr, const size_t length, const bool call_msync)
   }
 }
 
+/// \brief Returns the number of page faults caused by the process
+/// \return A pair of #of minor and major page faults
+inline std::pair<std::size_t, std::size_t> get_num_page_faults()
+{
+  std::size_t minflt = 0;
+  std::size_t majflt = 0;
+#ifdef __linux__
+  const char* stat_path = "/proc/self/stat";
+  FILE *f = ::fopen(stat_path, "r");
+  if (f) {
+    // 0:pid 1:comm 2:state 3:ppid 4:pgrp 5:session 6:tty_nr 7:tpgid 8:flags 9:minflt 10:cminflt 11:majflt
+    int ret;
+    if ((ret = ::fscanf(f,"%*d %*s %*c %*d %*d %*d %*d %*d %*u %lu %*u %lu", &minflt, &majflt)) != 2) {
+      std::cerr << "Failed to reading #of page faults " << ret << std::endl;
+      minflt = majflt = 0;
+    }
+  }
+  fclose(f);
+#else
+#warning "get_num_page_faults() is not supported in this environment"
+#endif
+  return std::make_pair(minflt, majflt);
+}
 } // namespace utility
 
 #endif //SIMPLE_BFS_MMAP_UTILITY_HPP
