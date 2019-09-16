@@ -141,6 +141,7 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
   assert(work != 0);
   memset((void*)work, 0, batch_sz * sizeof(vector_xy<pixel_type>));
 
+  // pre-generate vectors
   std::cout << "Generate " << batch_sz << std::endl;
   const auto gen_start = utility::elapsed_time_sec();
   for (int j = 0; j < batch_sz; j++) {
@@ -149,19 +150,21 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
     const uint64_t y_intercept = y_start_dist(rnd_engine);
     const double x_slope = x_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
     const double y_slope = y_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
-//       work[j].set(x_slope, x_intercept, y_slope, y_intercept, z_intercept, &pixel_data[j * size_z]);
     work[j].set(x_slope, x_intercept, y_slope, y_intercept, z_intercept, &pixel_data[j * (sz_per_vec / sizeof(pixel_type))]);
   }
   total_execution_time += utility::elapsed_time_sec(gen_start);
   std::cout << "Gen time:" << total_execution_time << std::endl;
-  
+
+  // fetch pixel data for each vector
+  // note: this does ALL vectors in a single pass. this method is constrained
+  //       by the amount of system memory available.
   std::cout << "PF " << batch_sz << std::endl;
   const auto pf_start = utility::elapsed_time_sec();
-
   for (uint64_t k = 0; k < size_k; k++) {
     const double time_offset = cube.timestamp(k) - cube.timestamp(0);
     #pragma omp parallel for schedule(static, NPF)
     for (uint64_t j = 0; j < batch_sz; j++) {
+      // the work performed by this loop was out of cube_iterator_with_vector in vector.hpp
       vector_xy<pixel_type>& v = work[j];
       const auto xy = v.position(time_offset);
       if (time_offset >= v.z_intercept && !cube.out_of_range(xy.first, xy.second, k)) {
@@ -171,11 +174,11 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
     if (k % 10 == 0) { std::cout << k << " / " << size_k << std::endl; }
   }
 
-
   double pf_time = utility::elapsed_time_sec(pf_start);
   total_execution_time += pf_time;
   std::cout << "PF time:" << pf_time << std::endl;
 
+  // do the median calculation
   std::cout << "Calc " << batch_sz << std::endl;
   const auto calc_start = utility::elapsed_time_sec();
   #pragma omp parallel for schedule(static, NPF)
@@ -183,14 +186,7 @@ shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) 
     pixel_type* begin = work[j].pixels;
     pixel_type* end = &(work[j].pixels[work[j].npixels]);
     uint64_t size = (end - begin) / sizeof(pixel_type);
-    // median calculation using Torben algorithm
-//       std::cout <<  res[j].pixels <<  std::endl;
-//       const std::vector<pixel_type> v(res[j].pixels, &(res[j].pixels[res[j].npixels]));
-//       auto begin = std::begin();
-//       auto end = std::begin();
-    
-    
-//       result[i+j].first = torben(v.begin(), v.end());
+    // calculate median of this vector's pixel data
     std::sort(begin, end);
     uint64_t mid = size / 2;
     if (size % 2) {
