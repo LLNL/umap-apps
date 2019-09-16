@@ -85,6 +85,13 @@ class cube {
     return reverse_byte_order<pixel_type>(m_image_data[index_in_cube(x, y, k)]);
   }
 
+  /// \brief Returns the address of a pixel value of the given x-y-k coordinate
+  /// A returned value can be NaN value
+  pixel_type* get_pixel_addr(const ssize_t x, const ssize_t y, const ssize_t k) const {
+    assert(!out_of_range(x, y, k));
+    return &m_image_data[index_in_cube(x, y, k)];
+  }
+
   /// \brief Returns the size of cube (x, y, k) in tuple
   std::tuple<size_t, size_t, size_t> size() const {
     return std::make_tuple(m_size_x, m_size_y, m_size_k);

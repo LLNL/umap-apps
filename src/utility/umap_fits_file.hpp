@@ -75,6 +75,7 @@ private:
   void* map;
   std::size_t map_start; // start of the file data in the map
   std::size_t map_size; // size of the map
+  std::size_t page_size; // size of the map
 };
 std::ostream &operator<<(std::ostream &os, utility::umap_fits_file::Tile const &ft);
 
@@ -229,6 +230,8 @@ Tile::Tile(const std::string& _fn)
   long naxis[2];
   int naxes;
   int open_flags = (O_RDONLY | O_LARGEFILE | O_DIRECT);
+//   int open_flags = (O_RDONLY);
+  page_size = utility::umt_getpagesize();
 
   file.fname = _fn;
   file.tile_start = (size_t)0;
@@ -274,7 +277,7 @@ Tile::Tile(const std::string& _fn)
   file.tile_start = (size_t)datastart;
   file.tile_size = (size_t)(dim.xDim * dim.yDim * dim.elem_size);
 
-  file.pgaligned_tile_start = file.tile_start & ~(4096-1);
+  file.pgaligned_tile_start = file.tile_start & ~(page_size-1);
   map_start = file.tile_start - file.pgaligned_tile_start;
   map_size = file.tile_size + map_start;
 //   if ( ( map = mmap(0, map_size, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, file.fd, file.pgaligned_tile_start) ) == 0 ) {

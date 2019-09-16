@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -34,6 +35,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "vector.hpp"
 #include "cube.hpp"
 #include "beta_distribution.hpp"
+
+#define NGEN 4096
+#define NPF 256
 
 using namespace median;
 
@@ -96,73 +100,125 @@ std::vector<double> read_timestamp(const size_t size_k) {
   return timestamp_list;
 }
 
-std::pair<double, std::vector<std::pair<pixel_type, vector_xy>>>
+std::pair<double, std::vector<std::pair<pixel_type, vector_xy<pixel_type>>>>
 shoot_vector(const cube<pixel_type> &cube, const std::size_t num_random_vector) {
   // Array to store results of the median calculation
-  std::vector<std::pair<pixel_type, vector_xy>> result(num_random_vector);
+  std::vector<std::pair<pixel_type, vector_xy<pixel_type>>> result(num_random_vector);
 
   double total_execution_time = 0.0;
   int numthreads = 1;
 
-#ifdef _OPENMP
 #pragma omp parallel
-#endif
   {
-#ifdef _OPENMP
-
     if (omp_get_thread_num() == 0) {
       numthreads = omp_get_num_threads();
       std::cout << "num threads: " << numthreads << std::endl;
     }
-    std::mt19937 rnd_engine(123 + omp_get_thread_num());
-#else
-    std::mt19937 rnd_engine(123);
-#endif
-    std::uniform_int_distribution<int> x_start_dist(0, std::get<0>(cube.size()) - 1);
-    std::uniform_int_distribution<int> y_start_dist(0, std::get<1>(cube.size()) - 1);
-    beta_distribution x_beta_dist(3, 2);
-    beta_distribution y_beta_dist(3, 2);
-    std::uniform_int_distribution<int> plus_or_minus(0, 1);
+  }
+  const uint64_t batch_sz = num_random_vector;
 
-    // Shoot random vectors using multiple threads
-#ifdef _OPENMP
-#pragma omp for
-#endif
-    for (int i = 0; i < num_random_vector; ++i) {
-      const double x_intercept = x_start_dist(rnd_engine);
-      const double y_intercept = y_start_dist(rnd_engine);
+  uint64_t rnd = 0;
+  asm volatile("rdrand %0" : "=r"(rnd) ::);
+  std::mt19937 rnd_engine(rnd);
+  uint64_t size_x = std::get<0>(cube.size()), size_y = std::get<1>(cube.size()), size_k = std::get<2>(cube.size());
+  std::uniform_int_distribution<uint64_t> x_start_dist(0, size_x - 1);
+  std::uniform_int_distribution<uint64_t> y_start_dist(0, size_y - 1);
+  std::uniform_real_distribution<double> z_start_dist(cube.timestamp(0), cube.timestamp(size_k - 1));
+  beta_distribution x_beta_dist(3, 2);
+  beta_distribution y_beta_dist(3, 2);
+  std::uniform_int_distribution<int> plus_or_minus(0, 1);
 
-      // Changed to the const value to 2 from 25 so that vectors won't access
-      // out of range of the cube with a large number of frames
-      //
-      // This is a temporary measures
-      const double x_slope = x_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
-      const double y_slope = y_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
+  uint64_t pg_per_vec = size_k * sizeof(pixel_type) / 4096;
+  uint64_t sz_per_vec = (pg_per_vec+1) * 4096;
 
-      vector_xy vector{x_slope, x_intercept, y_slope, y_intercept};
+  pixel_type* pixel_data = 0;
+  posix_memalign((void**)&pixel_data, 4096, num_random_vector * sz_per_vec);
+  assert(pixel_data != 0);
+  memset((void*)pixel_data, 0, num_random_vector * sz_per_vec);
 
-      cube_iterator_with_vector<pixel_type> begin(cube, vector, 0.0);
-      cube_iterator_with_vector<pixel_type> end(cube, vector);
+  vector_xy<pixel_type>* work = 0;
+  posix_memalign((void**)&work, 4096, batch_sz * sizeof(vector_xy<pixel_type>));
+  assert(work != 0);
+  memset((void*)work, 0, batch_sz * sizeof(vector_xy<pixel_type>));
 
-      // median calculation using Torben algorithm
-      const auto start = utility::elapsed_time_sec();
-      result[i].first = torben(begin, end);
-      total_execution_time += utility::elapsed_time_sec(start);
-      result[i].second = vector;
+  std::cout << "Generate " << batch_sz << std::endl;
+  const auto gen_start = utility::elapsed_time_sec();
+  for (int j = 0; j < batch_sz; j++) {
+    const double z_intercept = z_start_dist(rnd_engine);
+    const uint64_t x_intercept = x_start_dist(rnd_engine);
+    const uint64_t y_intercept = y_start_dist(rnd_engine);
+    const double x_slope = x_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
+    const double y_slope = y_beta_dist(rnd_engine) * 2 * (plus_or_minus(rnd_engine) ? -1 : 1);
+//       work[j].set(x_slope, x_intercept, y_slope, y_intercept, z_intercept, &pixel_data[j * size_z]);
+    work[j].set(x_slope, x_intercept, y_slope, y_intercept, z_intercept, &pixel_data[j * (sz_per_vec / sizeof(pixel_type))]);
+  }
+  total_execution_time += utility::elapsed_time_sec(gen_start);
+  std::cout << "Gen time:" << total_execution_time << std::endl;
+  
+  std::cout << "PF " << batch_sz << std::endl;
+  const auto pf_start = utility::elapsed_time_sec();
+
+  for (uint64_t k = 0; k < size_k; k++) {
+    const double time_offset = cube.timestamp(k) - cube.timestamp(0);
+    #pragma omp parallel for schedule(static, NPF)
+    for (uint64_t j = 0; j < batch_sz; j++) {
+      vector_xy<pixel_type>& v = work[j];
+      const auto xy = v.position(time_offset);
+      if (time_offset >= v.z_intercept && !cube.out_of_range(xy.first, xy.second, k)) {
+        v.pixels[v.npixels++] = *cube.get_pixel_addr(xy.first, xy.second, k);
+      }
     }
+    if (k % 10 == 0) { std::cout << k << " / " << size_k << std::endl; }
   }
 
-  return std::make_pair(total_execution_time / numthreads, result);
+
+  double pf_time = utility::elapsed_time_sec(pf_start);
+  total_execution_time += pf_time;
+  std::cout << "PF time:" << pf_time << std::endl;
+
+  std::cout << "Calc " << batch_sz << std::endl;
+  const auto calc_start = utility::elapsed_time_sec();
+  #pragma omp parallel for schedule(static, NPF)
+  for (int j = 0; j < batch_sz; j++) {
+    pixel_type* begin = work[j].pixels;
+    pixel_type* end = &(work[j].pixels[work[j].npixels]);
+    uint64_t size = (end - begin) / sizeof(pixel_type);
+    // median calculation using Torben algorithm
+//       std::cout <<  res[j].pixels <<  std::endl;
+//       const std::vector<pixel_type> v(res[j].pixels, &(res[j].pixels[res[j].npixels]));
+//       auto begin = std::begin();
+//       auto end = std::begin();
+    
+    
+//       result[i+j].first = torben(v.begin(), v.end());
+    std::sort(begin, end);
+    uint64_t mid = size / 2;
+    if (size % 2) {
+      result[j].first = begin[mid];
+    } else {
+      pixel_type med = begin[mid];
+      med += begin[mid+1];
+      result[j].first = med / 2;
+    }
+    result[j].second = (work[j]);
+  }
+  double calc_time = utility::elapsed_time_sec(calc_start);
+  total_execution_time += calc_time;
+  std::cout << "Calc time:" << calc_time << std::endl;
+
+  free(pixel_data);
+  free(work);
+  return std::make_pair(total_execution_time, result);
 }
 
 void print_top_median(const cube<pixel_type> &cube,
                       const size_t num_top,
-                      std::vector<std::pair<pixel_type, vector_xy>> &result) {
+                      std::vector<std::pair<pixel_type, vector_xy<pixel_type>>> &result) {
 
   // Sort the results by the descending order of median value
   std::sort(result.begin(), result.end(),
-            [](const std::pair<pixel_type, vector_xy> &lhd,
-               const std::pair<pixel_type, vector_xy> &rhd) {
+            [](const std::pair<pixel_type, vector_xy<pixel_type>> &lhd,
+               const std::pair<pixel_type, vector_xy<pixel_type>> &rhd) {
               return (lhd.first > rhd.first);
             });
 
@@ -170,7 +226,7 @@ void print_top_median(const cube<pixel_type> &cube,
   std::cout << "Top " << num_top << " median and pixel values (skip NaN value)" << std::endl;
   for (size_t i = 0; i < num_top; ++i) {
     const pixel_type median = result[i].first;
-    const vector_xy vector = result[i].second;
+    const vector_xy<pixel_type> vector = result[i].second;
 
     std::cout << "[" << i << "]" << std::endl;
     std::cout << "Median: " << median << std::endl;
@@ -207,17 +263,18 @@ int main(int argc, char **argv) {
   cube<pixel_type> cube(size_x, size_y, size_k, image_data, read_timestamp(size_k));
 
   const std::size_t num_random_vector = get_num_vectors();
+  uint64_t n_vec = (num_random_vector < NGEN) ? NGEN : num_random_vector;
 
   const auto start = utility::elapsed_time_sec();
-  auto result = shoot_vector(cube, num_random_vector);
+  auto result = shoot_vector(cube, n_vec);
   double txt = utility::elapsed_time_sec(start);
   double thread_exec = result.first;
 
-  std::cout << "#of vectors = " << num_random_vector
+  std::cout << "#of vectors = " << n_vec
             << "\nexecution time (sec) = " << txt
-            << "\nvectors/sec = " << static_cast<double>(num_random_vector) / txt << std::endl;
+            << "\nvectors/sec = " << static_cast<double>(n_vec) / txt << std::endl;
 
-  print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
+//   print_top_median(cube, std::min(num_random_vector, static_cast<size_t>(10)), result.second);
 
   utility::umap_fits_file::PerFits_free_cube(image_data);
 
