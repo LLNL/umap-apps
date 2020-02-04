@@ -10,6 +10,8 @@ library.
 - The license is [LGPL](/LICENSE).
 - [thirdparty_licenses.md](/thirdparty_licenses.md)
 
+`LLNL-CODE-733797`
+
 ## Contact
 
 Primary contact/Lead developer
