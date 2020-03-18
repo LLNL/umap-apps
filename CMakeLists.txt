@@ -38,5 +38,16 @@ endif()
 set (UMAPINCLUDEDIRS "${UMAP_INSTALL_PATH}/include")
 set (UMAPLIBDIR "${UMAP_INSTALL_PATH}/lib")
 
+if (MARGO_ROOT)
+   find_package(MPI REQUIRED)
+   find_library(LIBMARGO NAMES margo PATHS ${MARGO_ROOT}/lib)
+   find_library(LIBABT NAMES abt PATHS ${MARGO_ROOT}/lib)
+   find_library(LIBUMAP NAMES umap PATHS ${MARGO_ROOT}/lib)
+   find_library(LIBMERCURY NAMES mercury PATHS ${MARGO_ROOT}/lib)
+    
+    link_libraries(${MPI_LIBRARIES} ${LIBMARGO} ${LIBABT} ${LIBMERCURY} )
+    include_directories( ${MPI_INCLUDE_PATH} ${MARGO_ROOT}/include)
+endif()
+
 add_subdirectory(src)
 
