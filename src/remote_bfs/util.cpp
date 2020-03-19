@@ -1,8 +1,23 @@
+/*
+This file is part of UMAP.  For copyright information see the COPYRIGHT
+file in the top level directory, or at
+https://github.com/LLNL/umap/blob/master/COPYRIGHT
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License (as published by the Free
+Software Foundation) version 2.1 dated February 1999.  This program is
+distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the IMPLIED WARRANTY OF MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE. See the terms and conditions of the GNU Lesser General Public License
+for more details.  You should have received a copy of the GNU Lesser General
+Public License along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+*/
 
 #include <iostream>
+#include "util.hpp"
+
 #include "umap/umap.h"
 #include "../utility/mmap.hpp"
-#include "util.hpp"
 
 void usage() {
   std::cout << "BFS options:"
@@ -29,7 +44,7 @@ void parse_options(int argc, char **argv,
         options.graph_file_name = optarg;
         break;
 
-      case 's':options.use_mmap = true;
+      case 's':options.is_server = true;
         break;
 
       case 'h':usage();
@@ -59,7 +74,7 @@ void disp_bfs_options(const bfs_options &options) {
             << "\n#vertices: " << options.num_vertices
             << "\n#edges: " << options.num_edges
             << "\nGraph file: " << options.graph_file_name
-            << "\nUse system mmap: " << options.use_mmap << std::endl;
+            << "\nis Server: " << options.is_server << std::endl;
 }
 
 std::string disp_omp_schedule(const int kind_in_int) {

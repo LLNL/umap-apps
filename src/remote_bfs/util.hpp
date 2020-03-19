@@ -16,8 +16,8 @@
 struct bfs_options {
   size_t num_vertices{0};
   size_t num_edges{0};
+  bool is_server{false};
   std::string graph_file_name;
-  bool use_mmap{false};
 };
 
 void usage();

@@ -16,6 +16,15 @@ graph_file_path=$dir"/csr_graph_s${scale}"
 out_prefix="bfs_s${scale}"
 margo_lib_dir="/g/g90/peng8/flash/umap/build/lib"
 lpath="LD_LIBRARY_PATH=${margo_lib_dir}:$LD_LIBRARY_PATH"
+
+# -------------------------------------------------------- #
+# constants
+# -------------------------------------------------------- #
+
+K=1024
+M=$((K*K))
+G=$((K*K*K))
+
 # -------------------------------------------------------- #
 
 # -------------------------------------------------------- #
@@ -103,9 +112,6 @@ main() {
     done
 
     # ---- Run benchmark with umap ---- #
-    K=1024
-    M=$((K*K))
-    G=$((K*K*K))
 
     sleep 3
     usemmap=0
@@ -113,8 +119,8 @@ main() {
     do
 	for umap_page_size in $((256*K)) #$((64*K)) $((16*K)) # $((4*K)) $((1*M)) $((4*M)) #umap_page_size
 	do
-	    umap_read_ahead=0
             run
+	    wait all
 	done
     done
 }
