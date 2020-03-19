@@ -74,7 +74,7 @@ void disp_bfs_options(const bfs_options &options) {
             << "\n#vertices: " << options.num_vertices
             << "\n#edges: " << options.num_edges
             << "\nGraph file: " << options.graph_file_name
-            << "\nis Server: " << options.is_server << std::endl;
+            << ( options.is_server ?"\nis Server" : "\n is Client") << std::endl;
 }
 
 std::string disp_omp_schedule(const int kind_in_int) {

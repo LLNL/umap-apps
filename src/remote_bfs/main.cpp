@@ -15,6 +15,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <tuple>
 #include <fstream>
 #include <cstring>
+#include <cassert>
 #include "mpi.h"
 
 #include "util.hpp"
@@ -25,8 +26,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "../utility/time.hpp"
 #include "../utility/file.hpp"
 
+Umap::Store* ds;
 
-Umap::Store* create_datastore_server( std::string filename)
+void create_datastore_server( std::string filename)
 {
 
   int fd;
@@ -34,14 +36,12 @@ Umap::Store* create_datastore_server( std::string filename)
   if ( ( fd = open(filename.c_str(), o_opts, S_IRUSR | S_IWUSR) ) == -1 ) {
     std::string estr = "Failed to open " + filename + ": ";
     perror(estr.c_str());
-    return NULL;
   }
 
   struct stat sbuf;
   if (fstat(fd, &sbuf) == -1) {
     std::string estr = "Failed to get status (fstat) for " + filename + ": ";
     perror(estr.c_str());
-    return NULL;
   }
 
   off_t numbytes = (off_t)sbuf.st_size;
@@ -55,17 +55,26 @@ Umap::Store* create_datastore_server( std::string filename)
     std::ostringstream ss;
     ss << "mmap of " << numbytes << " bytes failed for " << filename << ": ";
     perror(ss.str().c_str());
-    return NULL;
   }
   
   /* Create the network-based datastore */
   void* region_dup = malloc(numbytes);
-  memcpy(region_dup, region, numbytes);
-  Umap::Store* ds  = new Umap::StoreNetworkServer("graph_ptr", region_dup, numbytes);
-  std::cout << "Server graph_ptr is Registed " << std::endl;
-  sleep(30);
-  
-  return ds;
+  #pragma omp parallel
+  {
+    int tid = omp_get_thread_num();
+    int num_threads = omp_get_num_threads();
+    size_t stride = (numbytes - 1)/num_threads + 1;
+    if( (stride*tid + stride)>numbytes ){
+      stride = numbytes-stride*tid;
+      assert( tid==(num_threads-1));
+    }
+    memcpy((char*)region_dup+stride*tid, (char*)region+stride*tid, stride);
+    if(tid==0)
+      std::cout << num_threads << " threads finished memcpy" << std::endl;
+  }
+  ds  = new Umap::StoreNetworkServer("graph_ptr", region_dup, numbytes);
+  std::cout << "Server graph_ptr is Registed " << std::endl;  
+
 }
 
 
@@ -79,7 +88,7 @@ std::pair<uint64_t *, uint64_t *> map_graph_client(const bfs_options &options)
   const size_t aligned_size   = umap_page_size * aligned_pages;
 
   /* Create the network-based datastore */
-  Umap::Store* ds  = new Umap::StoreNetworkClient("graph_ptr", 0);
+  ds  = new Umap::StoreNetworkClient("graph_ptr", 0);
   std::cout << " Client graph_ptr is Registed " << std::endl;
 
   /* create a UMap region on the datastore */
@@ -109,11 +118,11 @@ int main(int argc, char **argv) {
 
   if(options.is_server){
 
-    Umap::Store* ds = create_datastore_server(options.graph_file_name);
+    create_datastore_server(options.graph_file_name);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    delete(ds);
+    while(true)
+      sleep(10);
+    
   }
   else{
 
@@ -147,15 +156,21 @@ int main(int argc, char **argv) {
   
     /*Start validation */
     count_level(options.num_vertices, max_level, level.data());
-
-    /* Release resource
-    utility::unmap_file(options.use_mmap,
-			utility::get_file_size(options.graph_file_name),
-			const_cast<uint64_t *>(index));
-    */
     MPI_Barrier(MPI_COMM_WORLD);
+
+    /* Unmap file */
+    if ( uunmap( (void*)index, 0) ) {
+      int eno = errno;
+      std::cerr << "Failed to unmap network datastore: " << strerror(eno) << std::endl;
+      return -1;
+    }
+
   }
+
+  delete(ds);
+
   return 0;
+  
 }
 
 

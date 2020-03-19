@@ -7,15 +7,20 @@
 # sh path/to/umap-apps/src/remote_bfs/benchmark_remote_bfs.sh
 
 # -------------------------------------------------------- #
-# Configuration
+# Input Configuration
 # -------------------------------------------------------- #
-scale=18
 EXE="./bin/remote_bfs"
 dir="/p/lscratchh/peng8"  #"/l/ssd"
-graph_file_path=$dir"/csr_graph_s${scale}"
-out_prefix="bfs_s${scale}"
+
+# -------------------------------------------------------- #
+# Machine Configuration
+# -------------------------------------------------------- #
+serverNode=flash1
+clientNode=flash1
+#"flash3,flash4,flash5,flash6,flash7,flash8,flash9,flash10,flash11,flash12,flash13"
+
 margo_lib_dir="/g/g90/peng8/flash/umap/build/lib"
-lpath="LD_LIBRARY_PATH=${margo_lib_dir}:$LD_LIBRARY_PATH"
+lpath="LD_LIBRARY_PATH=${margo_lib_dir}:/usr/tce/packages/openmpi/openmpi-4.0.0-gcc-8.1.0/lib:/usr/tce/packages/python/python-3.7.2/lib:/g/g90/peng8/cuda/lib64:/usr/tce/packages/cuda/cuda-10.0.130/lib64:/g/g90/peng8/cuda/lib64:/usr/tce/packages/cuda/cuda-10.0.130/lib64"
 
 # -------------------------------------------------------- #
 # constants
@@ -45,55 +50,14 @@ prepare_input(){
 	done
 	echo $cmd
 	eval $cmd
-
-	exit
     fi
 }
 
-execute() {
-    echo "$@" |& tee -a ${out_file}
-    time "$@" |& tee -a ${out_file}
-}
-
-used_gcc_version() {
+print_gcc_version() {
+    echo ""
     ret=$(strings $1 | grep "GCC")
     echo ${ret}
-}
-
-run() {
-    num_vertices=$((2**${scale}))
-    num_edges=$((${num_vertices}*32))
-
-    BASE_OPTIONS="-n${num_vertices} -m${num_edges} -g${graph_file_path}"
-
-    # ---- Generate output file name ---- #
-    if [ $usemmap -eq 1 ]; then
-	MAP_OPTION=" -s " # use system mmap
-	out_file="${out_prefix}_m${usemmap}_t${numOMPThreads}_ra${read_ahead_size}.log"
-    else
-	MAP_OPTION=""
-	out_file="${out_prefix}_m${usemmap}_t${numOMPThreads}_f${umap_page_fillers}_e${umap_page_evictors}_h${umap_high_evict}_l${umap_low_evict}_p${umap_page_size}_r${umap_read_ahead}.log"
-    fi
-    date | tee ${out_file}
-
-    
-    # ---- Print some system information ---- #
-    local gcc_version=$(used_gcc_version $EXE )
-    echo "USED GCC is " ${gcc_version} >> ${out_file}
-    echo "" | tee -a ${out_file}
-
-    
-    # ---- Set some environmental variables ---- #
-    if [ $usemmap -eq 0 ]; then
-      export UMAP_PAGESIZE=$umap_page_size
-      env | grep "UMAP" |& tee -a ${out_file}
-    fi    
-
-    # ---- Run the benchmark ---- #
-    execute env $lpath OMP_NUM_THREADS=$numOMPThreads OMP_SCHEDULE=static $EXE ${BASE_OPTIONS} ${MAP_OPTION} &
-    #echo "" |& tee -a ${out_file}
-
-    #date | tee -a ${out_file}
+    echo ""
 }
 
 
@@ -101,28 +65,52 @@ run() {
 # Run benchmark varying configuration
 # -------------------------------------------------------- #
 main() {
+    # ---- Print some system information ---- #
+    print_gcc_version $EXE
 
-    prepare_input
+    for scale in 27;do
+	
+	graph_file_path=$dir"/csr_graph_s${scale}"
+	out_prefix="bfs_s${scale}"
     
-    # ---- Run benchmark with mmap ---- #
-    usemmap=1
-    for numOMPThreads in 48 #96
-    do
-        run
-    done
+	num_vertices=$(( 2**scale ))
+	num_edges=$(( num_vertices* 16 * 2))
 
-    # ---- Run benchmark with umap ---- #
+	prepare_input
 
-    sleep 3
-    usemmap=0
-    for numOMPThreads in 48 #96
-    do
-	for umap_page_size in $((256*K)) #$((64*K)) $((16*K)) # $((4*K)) $((1*M)) $((4*M)) #umap_page_size
+	BASE_OPTIONS="-n${num_vertices} -m${num_edges} -g${graph_file_path}"
+
+	# ---- Start the server  ---- #
+	rm -rf serverfile
+	cmd="env $lpath srun --nodelist=${serverNode} --ntasks-per-node=1 -N 1 $EXE ${BASE_OPTIONS} -s &"
+	echo $cmd
+	eval $cmd
+
+	# -----Start the client ----- #
+	while [ ! -f serverfile ]; do
+            sleep 1
+	done
+
+	for numNodes in 1 #{1..12..1}
 	do
-            run
-	    wait all
+	    for numProcPerNode in 1 2 4
+	    do
+		for numOMPThreads in 1 4 8
+		do
+		    for pSize in $((1*M)) $((256*K)) #$((64*K)) $((16*K)) # $((4*K)) $((1*M)) $((4*M)) #umap_page_size
+		    do
+		    cmd="env $lpath OMP_NUM_THREADS=$numOMPThreads OMP_SCHEDULE=static UMAP_PAGESIZE=$pSize  srun --nodelist=${clientNode} --ntasks-per-node=$numProcPerNode -N $numNodes  $EXE ${BASE_OPTIONS}"
+		    echo $cmd
+		    time eval $cmd
+		    done
+		done
+	    done
 	done
     done
+
+    pkill remote_bfs
+    sleep 3
+    echo "Done"
 }
 
 main "$@"
