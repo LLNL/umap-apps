@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "../utility/file.hpp"
 
 Umap::Store* ds;
+int rank, num_proc;
 
 size_t get_aligned_size( size_t original_size ){
   
@@ -56,7 +57,6 @@ void create_datastore_server( std::string filename)
   }
 
   off_t numbytes = (off_t)sbuf.st_size;
-  std::cout << "Graph file size  " << (numbytes) << std::endl;
 
   const int prot = PROT_READ;
   void* region = NULL;
@@ -68,26 +68,55 @@ void create_datastore_server( std::string filename)
     perror(ss.str().c_str());
   }
   
-  /* Create the network-based datastore */
-  size_t aligned_size = get_aligned_size(numbytes);
-  void* region_dup = malloc(aligned_size);
-  #pragma omp parallel
-  {
-    int tid = omp_get_thread_num();
-    int num_threads = omp_get_num_threads();
-    size_t stride = (numbytes - 1)/num_threads + 1;
-    if( (stride*tid + stride)>numbytes ){
-      stride = numbytes-stride*tid;
-      assert( tid==(num_threads-1));
-    }
-    memcpy((char*)region_dup+stride*tid, (char*)region+stride*tid, stride);
-    if(tid==0)
-      std::cout << num_threads << " threads finished memcpy" << std::endl;
-  }
-  assert(aligned_size>=numbytes);
-  ds  = new Umap::StoreNetworkServer("graph_ptr", region_dup, aligned_size);
-  std::cout << "Server graph_ptr is Registed " << std::endl;  
 
+  /* Create the network-based datastore */
+
+  size_t umap_page_size = umapcfg_get_umap_page_size();
+  size_t total_aligned_pages  = (numbytes - 1)/umap_page_size + 1;
+  size_t pages_per_server = total_aligned_pages/num_proc;
+
+  size_t page_st = pages_per_server*rank;
+  size_t page_end = page_st + pages_per_server;
+  if( rank==(num_proc-1) )
+    page_end = total_aligned_pages;
+
+  size_t aligned_size = (page_end-page_st+1)*umap_page_size;
+  void* region_dup = malloc(aligned_size);
+  if( !region_dup ){
+    std::string estr = "Failed to allocate region_dup ";
+    perror(estr.c_str());
+  }
+
+  std::cout << "Graph file size  " << (numbytes) <<" aligned to "
+	    << total_aligned_pages<<" pages, "
+	    << (total_aligned_pages*umap_page_size) << std::endl;
+
+  /* Each Server fetch in its portion from the file system */
+  size_t copy_bytes = aligned_size;
+  if( rank==(num_proc-1) )
+    copy_bytes = numbytes - aligned_size*rank;
+  
+  if( copy_bytes>0 ){
+#pragma omp parallel
+    {
+      int tid = omp_get_thread_num();
+      int num_threads = omp_get_num_threads();
+      size_t thread_stride = copy_bytes/num_threads;
+      size_t copy_length = thread_stride;
+      if( tid==(num_threads-1) )
+	copy_length = copy_bytes - thread_stride*tid;
+            
+      memcpy( (char*)region_dup+thread_stride*tid,
+	      (char*)region + rank*pages_per_server*umap_page_size + thread_stride*tid,
+	      copy_length);
+
+      if(tid==0)
+	std::cout << num_threads << " threads finished memcpy" << std::endl;
+    }
+  }//End of copy from file to memory
+
+  ds  = new Umap::StoreNetworkServer("graph_ptr", region_dup, aligned_size);
+  std::cout << "Server " <<rank << " graph_ptr is Registed " << std::endl;
 }
 
 
@@ -101,9 +130,9 @@ std::pair<uint64_t *, uint64_t *> map_graph_client(const bfs_options &options)
   /* Create the network-based datastore */
   ds  = new Umap::StoreNetworkClient("graph_ptr", 0);
   size_t numbytes = ds->get_size();
+  std::cout << " Client graph_ptr is Registed "<<numbytes <<" bytes (aligned to "<<aligned_size<<" )\n\n";
   assert(aligned_size<=numbytes);
 
-  std::cout << " Client graph_ptr is Registed "<<numbytes <<" bytes (aligned to "<<aligned_size<<" )\n\n";
   
   /* create a UMap region on the datastore */
   const int prot = PROT_READ;
@@ -130,7 +159,6 @@ int main(int argc, char **argv) {
   disp_bfs_options(options);
 
   MPI_Init(&argc, &argv);
-  int rank, num_proc;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
   

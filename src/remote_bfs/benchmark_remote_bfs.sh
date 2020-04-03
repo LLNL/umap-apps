@@ -1,40 +1,16 @@
 #!/bin/bash
 
-# -------------------------------------------------------- #
-# Usage
-# -------------------------------------------------------- #
-# cd path/to/build
-# sh path/to/umap-apps/src/remote_bfs/benchmark_remote_bfs.sh
-
-# -------------------------------------------------------- #
-# Input Configuration
-# -------------------------------------------------------- #
 EXE="./bin/remote_bfs"
-dir="/p/lscratchh/peng8"  #"/l/ssd"
+dir="/p/lscratchh/peng8"
 
-# -------------------------------------------------------- #
-# Machine Configuration
-# -------------------------------------------------------- #
-serverNode=flash1
-clientNode=flash1
-#"flash3,flash4,flash5,flash6,flash7,flash8,flash9,flash10,flash11,flash12,flash13"
-
-margo_lib_dir="/g/g90/peng8/flash/umap/build/lib"
-lpath="LD_LIBRARY_PATH=${margo_lib_dir}:/usr/tce/packages/openmpi/openmpi-4.0.0-gcc-8.1.0/lib:/usr/tce/packages/python/python-3.7.2/lib:/g/g90/peng8/cuda/lib64:/usr/tce/packages/cuda/cuda-10.0.130/lib64:/g/g90/peng8/cuda/lib64:/usr/tce/packages/cuda/cuda-10.0.130/lib64"
-
-# -------------------------------------------------------- #
-# constants
-# -------------------------------------------------------- #
+margo_lib_dir="/g/g90/peng8/flash/deps/lib"
+umap_lib_dir="/g/g90/peng8/flash/forked_umap_remote_region/build4/lib"
+lpath="LD_LIBRARY_PATH=${margo_lib_dir}:${umap_lib_dir}:$LD_LIBRARY_PATH"
 
 K=1024
 M=$((K*K))
 G=$((K*K*K))
 
-# -------------------------------------------------------- #
-
-# -------------------------------------------------------- #
-# Functions
-# -------------------------------------------------------- #
 prepare_input(){
     if test ! -f $graph_file_path ;then
 	numThreads=8
@@ -68,7 +44,7 @@ main() {
     # ---- Print some system information ---- #
     print_gcc_version $EXE
 
-    for scale in 27;do
+    for scale in 27 28 29;do
 	
 	graph_file_path=$dir"/csr_graph_s${scale}"
 	out_prefix="bfs_s${scale}"
@@ -81,33 +57,34 @@ main() {
 	BASE_OPTIONS="-n${num_vertices} -m${num_edges} -g${graph_file_path}"
 
 	# ---- Start the server  ---- #
-	rm -rf serverfile
-	cmd="env $lpath srun --nodelist=${serverNode} --ntasks-per-node=1 -N 1 $EXE ${BASE_OPTIONS} -s &"
-	echo $cmd
-	eval $cmd
+	for numServerNode in 4 3 2 1;do
+	    for numServerProc in 1 2 4;do
+		rm -rf serverfile
+		serverThreads=$(( 24/numServerProc ))
+		cmd="env $lpath OMP_NUM_THREADS=$serverThreads UMAP_PAGESIZE=4194304 srun --ntasks-per-node=${numServerProc} -N ${numServerNode} $EXE ${BASE_OPTIONS} -s &"
+		echo $cmd
+		eval $cmd
 
-	# -----Start the client ----- #
-	while [ ! -f serverfile ]; do
-            sleep 1
-	done
+		# -----Start the client ----- #
+		while [ ! -f serverfile ]; do
+		    sleep 3
+		done
 
-	for numNodes in 1 #{1..12..1}
-	do
-	    for numProcPerNode in 1 2 4
-	    do
-		for numOMPThreads in 1 4 8
-		do
-		    for pSize in $((1*M)) $((256*K)) #$((64*K)) $((16*K)) # $((4*K)) $((1*M)) $((4*M)) #umap_page_size
-		    do
-		    cmd="env $lpath OMP_NUM_THREADS=$numOMPThreads OMP_SCHEDULE=static UMAP_PAGESIZE=$pSize  srun --nodelist=${clientNode} --ntasks-per-node=$numProcPerNode -N $numNodes  $EXE ${BASE_OPTIONS}"
-		    echo $cmd
-		    time eval $cmd
+		for numClientNodes in 4 3 2 1;do
+		    for numClientProcPerNode in 1 2 4;do
+			numOMPThreads=$(( 24/numClientProcPerNode ))
+			for pSize in $((1*M)) $((256*K)) #$((64*K)) $((16*K)) # $((4*K)) $((1*M)) $((4*M)) #umap_page_size
+			do
+			    cmd="env $lpath OMP_NUM_THREADS=$numOMPThreads OMP_SCHEDULE=static UMAP_PAGESIZE=$pSize srun --ntasks-per-node=$numClientProcPerNode -N $numClientNodes $EXE ${BASE_OPTIONS}"
+			    echo $cmd
+			    time eval $cmd
+			done
 		    done
 		done
 	    done
 	done
     done
-
+    
     pkill remote_bfs
     sleep 3
     echo "Done"
