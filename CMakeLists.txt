@@ -35,8 +35,9 @@ if ( NOT EXISTS ${UMAP_INSTALL_PATH}/lib )
     "${UMAP_INSTALL_PATH}/lib directory does not exist")
 endif()
 
-set (UMAPINCLUDEDIRS "${UMAP_INSTALL_PATH}/include")
+set (UMAPINCLUDEDIRS "${UMAP_INSTALL_PATH}/include" "${UMAP_INSTALL_PATH}/../../uffd-socket/include")
 set (UMAPLIBDIR "${UMAP_INSTALL_PATH}/lib")
+set (UFFDSOCKLIBDIR "${UMAP_INSTALL_PATH}/../../uffd-socket/bin/lib")
 
 add_subdirectory(src)
 

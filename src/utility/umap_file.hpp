@@ -21,9 +21,17 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <map>
+#include <vector>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "umap/umap.h"
+extern "C"{
+#include "uffd.h"
+#include <sys/un.h>
+#include <sys/socket.h>
+#include <assert.h>
+}
 
 namespace utility {
 
@@ -35,6 +43,93 @@ ssize_t get_umap_page_size() {
   }
 
   return page_size;
+}
+
+class mmap_conn{
+	private:
+		int cfd;
+		struct sockaddr_un sock_addr;
+		std::string filename;
+		void *base_addr;
+		uint64_t size;
+	public:
+		mmap_conn(std::string fname):filename(fname){
+			cfd = socket(AF_UNIX, SOCK_STREAM, 0);
+			sock_addr.sun_family = AF_UNIX;
+			std::string path = "/tmp/" + filename;
+			strncpy(sock_addr.sun_path, path.c_str(), sizeof(sock_addr.sun_path));
+			if (connect(cfd, (struct sockaddr *) &sock_addr, sizeof(sock_addr)) == -1) {
+   				close(cfd);
+    				perror("connect");
+    				exit(1);
+  			}
+			uf_client(cfd, &base_addr, &size);
+		}
+		char *get_base_addr(){
+			return (char *)base_addr;
+		}
+		~mmap_conn(){
+			close(cfd);
+		}
+};
+
+std::map<std::string, mmap_conn* > file_server_conns;
+
+void *map_file_server(
+    std::string filename,
+    bool initonly,
+    bool noinit,
+    bool usemmap,
+    uint64_t numbytes,
+    void* start_addr)
+{
+  int o_opts = O_RDWR | O_LARGEFILE | O_DIRECT;
+  void* region = NULL;
+  int fd;
+
+  assert(noinit);
+  assert(!initonly);
+ 
+  const int prot = PROT_READ|PROT_WRITE;
+
+  assert(usemmap);
+
+  if ( usemmap ) {
+    int flags = MAP_SHARED | MAP_NORESERVE;
+
+    if (start_addr != nullptr)
+      flags |= MAP_FIXED;
+
+    mmap_conn *mc = new mmap_conn(filename);
+    file_server_conns[filename] = mc;
+    region = mc->get_base_addr();
+  }
+  else {
+    int flags = UMAP_PRIVATE;
+
+    if (start_addr != nullptr)
+      flags |= MAP_FIXED;
+
+    region = umap(start_addr, numbytes, prot, flags, fd, 0);
+    if ( region == UMAP_FAILED ) {
+        std::ostringstream ss;
+        ss << "umap_mf of " << numbytes
+          << " bytes failed for " << filename << ": ";
+        perror(ss.str().c_str());
+        return NULL;
+    }
+  }
+  return region; 
+}
+
+void unmap_file_server(std::string filename, uint64_t numbytes, void* region){
+	auto it = file_server_conns.find(filename);
+	if(it!=file_server_conns.end()){
+		file_server_conns.erase(it);
+	}else{
+        	std::ostringstream ss;
+       		ss << "no mapping connections found with file server for :" << filename << std::endl;
+	}
 }
 
 void* map_in_file(

@@ -19,14 +19,14 @@ if ( CFITS_LIBRARY AND CFITS_INCLUDE_DIR )
       include_directories( ${CMAKE_CURRENT_SOURCE_DIR} ${UMAPINCLUDEDIRS})
 
       add_executable(test_median_calculation test_median_calculation.cpp)
-      target_link_libraries(test_median_calculation ${UMAPLIBDIR}/libumap.a ${CFITS_LIBRARIES})
+      target_link_libraries(test_median_calculation ${UMAPLIBDIR}/libumap.a ${CFITS_LIBRARIES} ${UFFDSOCKLIBDIR}/libuffd.so)
       install(TARGETS test_median_calculation
               LIBRARY DESTINATION lib
               ARCHIVE DESTINATION lib/static
               RUNTIME DESTINATION bin )
 
       add_executable(run_random_vector run_random_vector.cpp)
-      target_link_libraries(run_random_vector ${UMAPLIBDIR}/libumap.a ${CFITS_LIBRARIES})
+      target_link_libraries(run_random_vector ${UMAPLIBDIR}/libumap.a ${CFITS_LIBRARIES} ${UFFDSOCKLIBDIR}/libuffd.so)
       install(TARGETS run_random_vector
               LIBRARY DESTINATION lib
               ARCHIVE DESTINATION lib/static

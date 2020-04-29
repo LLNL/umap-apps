@@ -18,7 +18,7 @@ if(OPENMP_FOUND)
     "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
   add_executable(umapsort umapsort.cpp)
 
-  target_link_libraries(umapsort ${UMAPLIBDIR}/libumap.a)
+  target_link_libraries(umapsort ${UMAPLIBDIR}/libumap.a ${UFFDSOCKLIBDIR}/libuffd.so)
 
   include_directories( ${CMAKE_CURRENT_SOURCE_DIR} ${UMAPINCLUDEDIRS} )
 

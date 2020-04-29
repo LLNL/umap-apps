@@ -7,7 +7,7 @@ if(OPENMP_FOUND)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
     add_executable(umapcpu umapcpu.cpp)
 
-    target_link_libraries(umapcpu ${UMAPLIBDIR}/libumap.a)
+    target_link_libraries(umapcpu ${UMAPLIBDIR}/libumap.a ${UFFDSOCKLIBDIR}/libuffd.so)
 
     include_directories( ${CMAKE_CURRENT_SOURCE_DIR} ${UMAPINCLUDEDIRS} } )
 
