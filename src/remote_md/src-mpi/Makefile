@@ -29,14 +29,12 @@ MPI_LIB =
 MPI_INCLUDE =
 
 ### A place to specify any other include or library switches your
-### platform requires.
-margo_dir = /g/g90/peng8/flash/deps
-umap_dir  = /g/g90/peng8/flash/forked_umap_remote_region/build5
+### platform requires
+margo_dir = ${MARGO_DIR}
+umap_dir  = ${UMAP_DIR}
 
 OTHER_LIB = -L$(margo_dir)/lib -L${umap_dir}/lib -lumap -lmargo
 OTHER_INCLUDE = -I$(margo_dir)/include -I${umap_dir}/include
-
-
 
 
 #########################################
@@ -75,11 +73,11 @@ CFLAGS  += ${OPTFLAGS} ${INCLUDES} ${OTHER_INCLUDE}
 
 
 SOURCES := $(wildcard *.c)
-SOURCES := $(filter-out client.c CoMD.c, $(SOURCES) )
+SOURCES := $(filter-out remote_diagnostic.c CoMD.c, $(SOURCES) )
 OBJECTS=$(SOURCES:.c=.o)
 
 
-DEFAULT: client ${CoMD_EXE}
+DEFAULT: remote_diagnostic ${CoMD_EXE}
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@
@@ -87,8 +85,8 @@ DEFAULT: client ${CoMD_EXE}
 ${CoMD_EXE}: ${BIN_DIR} CoMD_info.h CoMD.c ${OBJECTS} 
 	${CC} ${CFLAGS} -o ${CoMD_EXE} CoMD.c ${OBJECTS} ${LDFLAGS}
 
-client: ${BIN_DIR} CoMD_info.h client.c ${OBJECTS} 
-	${CC} ${CFLAGS} -o $@ client.c ${OBJECTS} ${LDFLAGS}
+remote_diagnostic: ${BIN_DIR} CoMD_info.h remote_diagnostic.c ${OBJECTS} 
+	${CC} ${CFLAGS} -o $@ remote_diagnostic.c ${OBJECTS} ${LDFLAGS}
 
 CoMD_info.h: Makefile
 	./generate_info_header ${CoMD_VARIANT} "$(CC)" "$(CFLAGS)" "$(LDFLAGS)"
@@ -97,7 +95,7 @@ ${BIN_DIR}:
 	@if [ ! -d ${BIN_DIR} ]; then mkdir -p ${BIN_DIR} ; fi
 
 clean:
-	rm -f *.o CoMD_info.h .depend client 
+	rm -f *.o CoMD_info.h .depend remote_diagnostic 
 
 distclean: clean
 	rm -f ${CoMD_EXE} .depend.bak

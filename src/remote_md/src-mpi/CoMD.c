@@ -60,6 +60,8 @@
 #include "timestep.h"
 #include "constants.h"
 
+#include "umap/umap.h"
+
 #define REDIRECT_OUTPUT 0
 #define   MIN(A,B) ((A) < (B) ? (A) : (B))
 
@@ -108,6 +110,15 @@ int main(int argc, char** argv)
    // This is the CoMD main loop
    const int nSteps = sim->nSteps;
    const int printRate = sim->printRate;
+     
+   size_t umap_page_size = umapcfg_get_umap_page_size();
+   size_t aligned_pages = ((nSteps/printRate+1)*sizeof(real_t) - 1)/umap_page_size + 1;
+   size_t aligned_size  = aligned_pages * umap_page_size;
+   real_t kinetic_energy[aligned_size/sizeof(real_t)];
+   memset( kinetic_energy, 0, aligned_size );
+   int pos = 0;
+   umap_network("kinetic_energy", kinetic_energy, aligned_size );
+
    int iStep = 0;
    profileStart(loopTimer);
    for (; iStep<nSteps;)
@@ -122,6 +133,9 @@ int main(int argc, char** argv)
       timestep(sim, printRate, sim->dt);
       stopTimer(timestepTimer);
 
+      //printf("Proc %d kinetic_energy[%d] %f\n", getMyRank(), pos, sim->eKinetic);
+      kinetic_energy[pos++]=sim->eKinetic;
+      
       iStep += printRate;
    }
    profileStop(loopTimer);
@@ -141,6 +155,7 @@ int main(int argc, char** argv)
    comdFree(validate);
    finalizeSubsystems();
 
+   uunmap(kinetic_energy,aligned_size);
    timestampBarrier("CoMD Ending\n");
    destroyParallel();
 

@@ -15,8 +15,6 @@
 #include "memUtils.h"
 #include "performanceTimers.h"
 
-#include "umap/umap.h"
-
 static void computeVcm(SimFlat* s, real_t vcm[3]);
 
 /// \details
@@ -34,11 +32,6 @@ Atoms* initAtoms(LinkCell* boxes)
    atoms->p =        (real3*) comdMalloc(maxTotalAtoms*sizeof(real3));
    atoms->f =        (real3*) comdMalloc(maxTotalAtoms*sizeof(real3));
    atoms->U =        (real_t*)comdMalloc(maxTotalAtoms*sizeof(real_t));
-
-   size_t umap_page_size = umapcfg_get_umap_page_size();
-   size_t aligned_pages = (maxTotalAtoms*sizeof(real3) - 1)/umap_page_size + 1;
-   umap_network("atoms_r", atoms->r , umap_page_size*aligned_pages );
-
    
    atoms->nLocal = 0;
    atoms->nGlobal = 0;

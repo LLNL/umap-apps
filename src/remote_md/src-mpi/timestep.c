@@ -30,6 +30,7 @@ static void advancePosition(SimFlat* s, int nBoxes, real_t dt);
 /// After nSteps the kinetic energy is computed for diagnostic output.
 double timestep(SimFlat* s, int nSteps, real_t dt)
 {
+
    for (int ii=0; ii<nSteps; ++ii)
    {
       startTimer(velocityTimer);
@@ -54,7 +55,7 @@ double timestep(SimFlat* s, int nSteps, real_t dt)
    }
 
    kineticEnergy(s);
-
+   
    return s->ePotential;
 }
 
@@ -106,11 +107,11 @@ void kineticEnergy(SimFlat* s)
          int iSpecies = s->atoms->iSpecies[iOff];
          real_t invMass = 0.5/s->species[iSpecies].mass;
          eLocal[1] += ( s->atoms->p[iOff][0] * s->atoms->p[iOff][0] +
-         s->atoms->p[iOff][1] * s->atoms->p[iOff][1] +
-         s->atoms->p[iOff][2] * s->atoms->p[iOff][2] )*invMass;
+			s->atoms->p[iOff][1] * s->atoms->p[iOff][1] +
+			s->atoms->p[iOff][2] * s->atoms->p[iOff][2] )*invMass;
       }
    }
-
+   /*
    real_t eSum[2];
    startTimer(commReduceTimer);
    addRealParallel(eLocal, eSum, 2);
@@ -118,6 +119,9 @@ void kineticEnergy(SimFlat* s)
 
    s->ePotential = eSum[0];
    s->eKinetic = eSum[1];
+   */
+   s->ePotential = eLocal[0];
+   s->eKinetic = eLocal[1];
 }
 
 /// \details
