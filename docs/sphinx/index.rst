@@ -20,5 +20,6 @@ large regions of memory for them.
 
   advanced_configuration
   bfs
+  umapsort
   api/api
 

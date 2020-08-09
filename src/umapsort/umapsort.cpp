@@ -26,6 +26,7 @@
 #include "umap/umap.h"
 #include "../utility/commandline.hpp"
 #include "../utility/umap_file.hpp"
+#include "../utility/umap_sparse_store.hpp"
 #include "../utility/time.hpp"
 
 using namespace std;
@@ -108,17 +109,36 @@ int main(int argc, char **argv)
   auto start = utility::elapsed_time_sec();
 
   umt_getoptions(&options, argc, argv);
+  if (options.use_sparse_store){
+    if (options.usemmap){
+      std::cerr << "Error: Cannot use SparseStore with regular mmap, either use --usemmap or --use_sparse_store" << std::endl;
+      exit(1);
+    }
+    if (options.dirname == NULL || options.dirname == ""){
+      std::cerr << "Error: Please specify a backing directory path using the -d option" << std::endl;
+      exit(1);
+    }
+    std::cout << "SparseStore base directory path is set to: " << options.dirname << ", to change it, use -d option" << std::endl ;
+    std::cout << "Value of -f is not used with --use_sparse_store, files under " << options.dirname << " are named automatically" << std::endl;
+  }
 
   pagesize = (uint64_t)utility::get_umap_page_size();
 
   omp_set_num_threads(options.numthreads);
 
   totalbytes = options.numpages*pagesize;
-  range = utility::map_in_file(options.filename, options.initonly, options.noinit, options.usemmap, totalbytes);
+
+  if (options.use_sparse_store){
+    uint64_t file_size = totalbytes / options.numfiles;
+    range = utility::map_in_sparse_store(options.dirname, options.initonly, options.noinit, totalbytes, NULL,file_size);
+  }
+  else {
+    range = utility::map_in_file(options.filename, options.initonly, options.noinit, options.usemmap, totalbytes);
+  }
   if (range == nullptr)
     return -1;
 
-  if (options.numfiles > 1) {
+  if (options.numfiles > 1 && !options.use_sparse_store) {
     std::cout << "Setting up to operate on " << options.numfiles << " files." << std::endl;
 
     uint64_t pages_per_file = options.numpages / options.numfiles;
@@ -187,14 +207,19 @@ int main(int argc, char **argv)
 
   start = utility::elapsed_time_sec();
 
-  if (options.numfiles > 1) {
+  if (options.numfiles > 1 && !options.use_sparse_store) {
     for ( int i = 0; i < options.numfiles; ++i) {
       std::cout << "Unmapping " << mapsize[i] << " bytes from " << mappings[i] << std::endl;
       utility::unmap_file(options.usemmap, mapsize[i], mappings[i]);
     }
   }
   else {
-    utility::unmap_file(options.usemmap, mapsize[0], mappings[0]);
+    if(options.use_sparse_store){
+      utility::unmap_sparse_store(totalbytes,range);
+    }
+    else{
+      utility::unmap_file(options.usemmap, mapsize[0], mappings[0]);
+    }
   }
 
   fprintf(stderr, "umap TERM took %f seconds\n", utility::elapsed_time_sec(start));
