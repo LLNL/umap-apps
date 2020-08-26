@@ -24,8 +24,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "umap/umap.h"
+#include <map>
 
 namespace utility {
+
+std::map<void *, std::string> region_to_file_map;
 
 ssize_t get_umap_page_size() {
   const ssize_t page_size = umapcfg_get_umap_page_size();
@@ -110,6 +113,7 @@ void* map_in_file(
     }
   }
   else {
+#if 0
     int flags = UMAP_PRIVATE;
 
     if (start_addr != nullptr)
@@ -123,6 +127,10 @@ void* map_in_file(
         perror(ss.str().c_str());
         return NULL;
     }
+#endif
+    ::close(fd);
+    region = client_umap(filename.c_str(), PROT_READ, MAP_SHARED);
+    region_to_file_map[region] = filename;
   }
 
   return region;
@@ -148,12 +156,16 @@ void unmap_file(bool usemmap, uint64_t numbytes, void* region)
     }
   }
   else {
+    std::string filename = region_to_file_map[region];
+    client_uunmap(filename.c_str());
+#if 0
     if (uunmap(region, numbytes) < 0) {
       std::ostringstream ss;
       ss << "uunmap of failure: ";
       perror(ss.str().c_str());
       exit(-1);
     }
+#endif
   }
 }
 

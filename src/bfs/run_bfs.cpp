@@ -173,7 +173,10 @@ int main(int argc, char **argv) {
 
   parse_options(argc, argv, options);
   disp_bfs_options(options);
-  if (!options.use_mmap) disp_umap_env_variables();
+  if (!options.use_mmap){ 
+    disp_umap_env_variables();
+    init_umap_client(std::string(UMAP_SERVER_PATH));
+  }
 
   std::cout << "Initial #of page faults" << std::endl;
   print_num_page_faults();
@@ -206,5 +209,8 @@ int main(int argc, char **argv) {
                       utility::get_file_size(options.graph_file_name),
                       const_cast<uint64_t *>(index));
 
+  if (!options.use_mmap){
+    close_umap_client();
+  }
   return 0;
 }
