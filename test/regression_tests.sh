@@ -23,10 +23,11 @@ then
 	git clone --depth 1 -b develop https://github.com/LLNL/umap.git 
     fi
     cd $UMAP_ROOT
-    cmake3 -DCMAKE_INSTALL_PREFIX=. .
-    make -j
-    make install
-    cd ..
+    mkdir -p build && cd build
+    rm -f CMakeCache.txt
+    cmake3 -DCMAKE_INSTALL_PREFIX=. ..
+    make -j && make install
+    cd ../..
 fi
 
 if [ -z "$UMAP_APP_ROOT" ];
@@ -37,28 +38,46 @@ then
 	git clone --depth 1 -b develop https://github.com/LLNL/umap-apps.git 
     fi
     cd $UMAP_APP_ROOT
-    cmake3 -DCMAKE_INSTALL_PREFIX=. -DUMAP_INSTALL_PATH=$UMAP_ROOT .
-    make -j
-    make install
-    cd ..
+    mkdir -p build && cd build
+    rm -f CMakeCache.txt
+    cmake3 -DCMAKE_INSTALL_PREFIX=. -DUMAP_INSTALL_PATH=$UMAP_ROOT/build ..
+    make -j && make install
+    cd ../..
 fi
 
 
-BIN_PATH=$UMAP_APP_ROOT/bin
+BIN_PATH=$UMAP_APP_ROOT/build/bin
+
+if [ ! -d $SSD_MNT_PATH ];
+then
+    echo "$SSD_MNT_PATH does not exit!"
+    exit
+fi
 
 
-##############################################
-# BFS
-##############################################
+echo "##############################################"
+echo "# Churn Test "
+echo "##############################################"
+export LD_LIBRARY_PATH=$UMAP_ROOT/build/lib:$LD_LIBRARY_PATH
+CHURN_FILE=$SSD_MNT_PATH/regression_test_churn.dat
+$UMAP_ROOT/build/bin/churn --directio -f $CHURN_FILE -b 10000 -c 20000 -l 1000 -d 60
+/bin/rm -f $CHURN_FILE
+echo ""
+
+
+echo "##############################################"
+echo "# BFS "
+echo "##############################################"
 INPUT_GRAPH=$SSD_MNT_PATH/test_graph
 $BIN_PATH/ingest_edge_list -g $INPUT_GRAPH $UMAP_APP_ROOT/src/bfs/data/edge_list_rmat_s10_?_of_4
 $BIN_PATH/test_bfs -n 1017 -m 32768 -g $INPUT_GRAPH -l $UMAP_APP_ROOT/src/bfs/data/bfs_level_reference
 /bin/rm -f $INPUT_GRAPH
+echo ""
 
 
-##############################################
-# UMapSort default
-##############################################
+echo "##############################################"
+echo "# UMapSort default"
+echo "##############################################"
 DATA_SIZE=$(( 16*1024*1024*1024 ))
 
 for t in 144 96 48; do
@@ -70,11 +89,12 @@ for t in 144 96 48; do
 	time sh -c "$cmd"
     done
 done
+echo ""
 
 
-##############################################
-# UMapSort out-of-core
-##############################################
+echo "##############################################"
+echo "# UMapSort out-of-core"
+echo "##############################################"
 DATA_SIZE=$(( 16*1024*1024*1024 ))
 BUF_SIZE=$((  12*1024*1024*1024 )) 
 
@@ -87,17 +107,10 @@ for t in 144 96 48; do
 	time sh -c "$cmd"
     done
 done
+echo ""
 
+echo "Regression Tests complete successfully!"
+ 
 exit
 
-
-# Test for median calculation using fits files
-tar -xvf ../median_calculation/data/test_fits_files.tar.gz -C /tmp/
-test_median_calculation -f /tmp/test_fits_files/asteroid_sim_epoch
-/bin/rm -f /tmp/test_fits_files/*
-/bin/rmdir  /tmp/test_fits_files
-
-
-churn --directio -f /tmp/regression_test_churn.dat -b 10000 -c 20000 -l 1000 -d 60 
-/bin/rm -f /tmp/regression_test_churn.dat /tmp/regression_test_sort.dat
 
