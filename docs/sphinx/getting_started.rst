@@ -24,8 +24,8 @@ up and running:
 
   $ git clone https://github.com/LLNL/umap-apps.git
   $ mkdir build && cd build
-  $ cmake -DUMAP_INSTALL_PATH="<path to where umap is installed>" ../umap-apps
-  $ make
+  $ cmake -DCMAKE_INSTALL_PREFIX=<path to install umap-apps> -DUMAP_INSTALL_PATH=<path to where umap is installed> ..
+  $ make -j
 
 By default, umap-apps will build a Release type build and will use the system
 defined directories for installation.  To specify different build types or
