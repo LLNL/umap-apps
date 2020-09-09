@@ -1,4 +1,13 @@
 #!/bin/bash
+
+
+# This test script requires sudo privilege 
+# to disable swap, read ahread, drop page cache 
+
+
+SSD_KW="ssd"
+SSD_MNT_PATH="/mnt/ssd" 
+
 function free_mem {
   m=`grep MemFree /proc/meminfo | awk -v N=2 '{print $N}'`
   fm=$(((${m}/1024)/1024))
@@ -16,7 +25,7 @@ function disable_swap {
 }
 
 function set_readahead {
-  fs=`mount | grep intel | cut -d " " -f 1`
+  fs=`mount | grep ${SSD_KW} | cut -d " " -f 1`
   blockdev --setra $readahead $fs
   ra=`blockdev --getra $fs`
   echo "Read ahead set to $ra for $fs"
@@ -74,13 +83,14 @@ drop_page_cache
 amounttowaste
 waste_memory
 
-for t in 128 64 32 16
-do
-  rm -f /mnt/intel/sort_perf_data
-  drop_page_cache
-  free_mem
-  cmd="./umapsort --directio -f /mnt/intel/sort_perf_data -p $(((96*1024*1024*1024)/4096)) -n 1 -b $(((64*1024*1024*1024)/4096)) -t $t"
-  date
-  echo $cmd
-  time sh -c "$cmd"
+for t in 144 96 48; do
+    for umap_psize in 65536 16384 4096;do
+	rm -f ${SSD_MNT_PATH}/sort_perf_data
+	drop_page_cache
+	free_mem
+	cmd="env UMAP_PAGESIZE=$umap_psize ./umapsort -f ${SSD_MNT_PATH}/sort_perf_data -p $(((96*1024*1024*1024)/umap_psize)) -N 1 -t $t"
+	date
+	echo $cmd
+	time sh -c "$cmd"
+    done
 done
