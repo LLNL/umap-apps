@@ -1,53 +1,39 @@
 #!/bin/bash
-set -e
 
 ##################################################
 # This test script does not require sudo privilege 
-# This test download and compile Umap and Umap-app
-# if they are not in the currrent directory
-# It then run BFS, UMapsort, and Churn tests
+# The tests run BFS, UMapsort, and Churn tests
 # with different parameters
 ##################################################
 
-SSD_MNT_PATH="/mnt/ssd" 
-
-##############################################
-# Download and compile Umap and Umap-app
-# if they are not specified nor exit
-##############################################
 if [ -z "$UMAP_ROOT" ];
 then
+    echo "UMAP_ROOT is not set. Try to use the current directory."
     UMAP_ROOT=$(pwd)/umap
     if [ ! -d "$UMAP_ROOT" ];
     then
-	git clone --depth 1 -b develop https://github.com/LLNL/umap.git 
+	echo "Cannnot find umap. Please set UMAP_ROOT."
+	exit
     fi
-    cd $UMAP_ROOT
-    mkdir -p build && cd build
-    rm -f CMakeCache.txt
-    cmake3 -DCMAKE_INSTALL_PREFIX=. ..
-    make -j && make install
-    cd ../..
 fi
+
 
 if [ -z "$UMAP_APP_ROOT" ];
 then
+    echo "UMAP_APP_ROOT is not set. Try to use the current directory."
     UMAP_APP_ROOT=$(pwd)/umap-apps
     if [ ! -d "$UMAP_APP_ROOT" ];
     then
-	git clone --depth 1 -b develop https://github.com/LLNL/umap-apps.git 
+	echo "Cannnot find umap-apps. Please set UMAP_APP_ROOT."
+	exit
     fi
-    cd $UMAP_APP_ROOT
-    mkdir -p build && cd build
-    rm -f CMakeCache.txt
-    cmake3 -DCMAKE_INSTALL_PREFIX=. -DUMAP_INSTALL_PATH=$UMAP_ROOT/build ..
-    make -j && make install
-    cd ../..
 fi
+
 
 
 BIN_PATH=$UMAP_APP_ROOT/build/bin
 
+SSD_MNT_PATH="/mnt/ssd" 
 if [ ! -d $SSD_MNT_PATH ];
 then
     echo "$SSD_MNT_PATH does not exit!"
