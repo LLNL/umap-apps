@@ -28,10 +28,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "../utility/mmap.hpp"
 
 struct bfs_options {
-  size_t num_vertices{0};
-  size_t num_edges{0};
-  std::string graph_file_name;
-  bool use_mmap{false};
+  size_t 	num_vertices{0};
+  size_t 	num_edges{0};
+  std::string 	graph_file_name;
+  bool 		use_mmap{false};
+  int		search_start_node_fraction{0};
 };
 
 void disp_umap_env_variables() {
@@ -77,6 +78,9 @@ void parse_options(int argc, char **argv,
 
       case 's':options.use_mmap = true;
         break;
+
+      case 'o':options.search_start_node_fraction = std::stoull(optarg);
+	break;
 
       case 'h':usage();
         std::exit(0);
@@ -131,8 +135,10 @@ map_graph(const bfs_options &options) {
   return std::make_pair(index, edges);
 }
 
-void find_bfs_root(const size_t num_vertices, const uint64_t *const index, uint16_t *const level) {
-  for (uint64_t src = 0; src < num_vertices; ++src) {
+void find_bfs_root(const size_t num_vertices, const uint64_t *const index, uint16_t *const level, int fraction) {
+  uint64_t src;
+  src = fraction ? (num_vertices/fraction) : 0;
+  for (; src < num_vertices; ++src) {
     const size_t degree = index[src + 1] - index[src];
     if (degree > 0) {
       level[src] = 0;
@@ -192,7 +198,7 @@ int main(int argc, char **argv) {
   std::vector<uint64_t> visited_filter(utility::bitmap_size(options.num_vertices));
 
   bfs::init_bfs(options.num_vertices, level.data(), visited_filter.data());
-  find_bfs_root(options.num_vertices, index, level.data());
+  find_bfs_root(options.num_vertices, index, level.data(), options.search_start_node_fraction);
 
   std::cout << "Before BFS #of page faults" << std::endl;
   print_num_page_faults();
