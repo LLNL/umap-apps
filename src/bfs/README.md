@@ -61,7 +61,7 @@
 * You can get #of vertices and #of edges by running ingest\_edge\_list.
 * If '-s' is specified, the program uses system mmap instead of umap.
 * The interface to the umap runtime library configuration is controlled by environment variables, see [Umap Runtime Environment Variables](https://llnl-umap.readthedocs.io/en/develop/environment_variables.html).
-* This is a multi-threads (OpenMP) program. You can control the number of threads using the environment variable OMP\_NUM\_THREADS. You can also control OpenMP's schedule algorithm of the main BFS loop using OMP\_SCHEDULE environment variable.
+* This is a multi-threads (OpenMP) program. You can control the number of threads using the environment variable OMP\_NUM\_THREADS.
 
 
 ## Tips for Running Benchmark (on large-scale)
@@ -77,5 +77,5 @@ env OMP_NUM_THREADS=4 ./ingest_edge_list -g /dev/shm/csr_graph_file /mnt/ssd/edg
 mv /dev/shm/csr_graph_file /mnt/ssd/csr_graph_file
 sudo sync
 sudo echo 3 > /proc/sys/vm/drop_caches # drop page cache
-env OMP_NUM_THREADS=4 env OMP_SCHEDULE="static" ./run_bfs -n $((2**20)) -m $((2**20*16*2)) -g /mnt/ssd/csr_graph_file -s
+env OMP_NUM_THREADS=4 ./run_bfs -n $((2**20)) -m $((2**20*16*2)) -g /mnt/ssd/csr_graph_file -s
 ```

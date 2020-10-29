@@ -48,11 +48,6 @@ void print_omp_configuration() {
     if (::omp_get_thread_num() == 0)
       std::cout << "Run with " << ::omp_get_num_threads() << " threads" << std::endl;
   }
-  omp_sched_t kind;
-  int chunk_size;
-  ::omp_get_schedule(&kind, &chunk_size);
-  std::cout << "OpenMP schedule = " << utility::omp_schedule_kind_name(kind)
-            << ", chunk_size " << chunk_size << std::endl;
 #else
   std::cout << "Run with a single thread" << std::endl;
 #endif
@@ -84,7 +79,7 @@ uint16_t run_bfs(const size_t num_vertices,
     /// BFS loop for a single level
     /// We assume that the cost of generating threads at every level is negligible
 #ifdef _OPENMP
-#pragma omp parallel for schedule (runtime)
+#pragma omp parallel for
 #endif
     for (uint64_t src = 0; src < num_vertices; ++src) { /// BFS loop for each level
       if (level[src] != current_level) continue;

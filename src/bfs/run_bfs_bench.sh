@@ -71,7 +71,7 @@ run() {
   echo "OMP_NUM_THREADS=${OMP_NUM_THREADS}" |& tee -a ${out_file}
 
   # ---- Run the benchmark ---- #
-  execute_command env OMP_SCHEDULE=static ./run_bfs ${base_bench_options} ${ADDITIONAL_OPTION}
+  execute_command ./run_bfs ${base_bench_options} ${ADDITIONAL_OPTION}
   echo "" |& tee -a ${out_file}
 
   date | tee -a ${out_file}
