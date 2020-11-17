@@ -23,6 +23,7 @@ if(OPENMP_FOUND)
             RUNTIME DESTINATION bin )
 
     add_executable(test_bfs test_bfs.cpp)
+    target_link_libraries(test_bfs ${UMAPLIBDIR}/libumap.a)
     install(TARGETS test_bfs
             LIBRARY DESTINATION lib
             ARCHIVE DESTINATION lib/static

@@ -113,12 +113,13 @@ map_graph(const bfs_options &options) {
     }
   }
 
-  void *const map_raw_address = utility::map_in_file(options.graph_file_name,
-                                                     false,
-                                                     true,
-                                                     options.use_mmap,
-                                                     utility::get_file_size(options.graph_file_name),
-                                                     nullptr);
+  void *const map_raw_address = utility::umap_in_file(options.graph_file_name,
+						      false,
+						      false,
+						      true,
+						      options.use_mmap,
+						      utility::get_file_size(options.graph_file_name),
+						      nullptr);
   if (!map_raw_address) {
     std::cerr << "Failed to map the graph" << std::endl;
     std::abort();
