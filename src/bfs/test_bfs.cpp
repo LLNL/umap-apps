@@ -20,8 +20,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string>
 #include <fstream>
 
+#include "umap/umap.h"
 #include "bfs_kernel.hpp"
+#include "../utility/umap_file.hpp"
 #include "../utility/bitmap.hpp"
+#include "../utility/time.hpp"
+#include "../utility/file.hpp"
 #include "../utility/mmap.hpp"
 
 void parse_options(int argc, char **argv,
@@ -59,14 +63,39 @@ void parse_options(int argc, char **argv,
   }
 }
 
+size_t calculate_umap_pagesize_aligned_graph_file_size(const size_t num_vertices, const size_t num_edges) {
+  const size_t original_size = (num_vertices + 1 + num_edges) * sizeof(uint64_t);
+  const size_t umap_page_size = umapcfg_get_umap_page_size();
+  const size_t aligned_graph_size = (original_size % umap_page_size == 0)
+                                    ? original_size
+                                    : (original_size + (umap_page_size - original_size % umap_page_size));
+  return aligned_graph_size;
+}
+
+
 std::pair<uint64_t *, uint64_t *>
 map_graph(const size_t num_vertices, const size_t num_edges, const std::string &graph_file_name) {
-  const size_t graph_size = (num_vertices + 1 + num_edges) * sizeof(uint64_t);
 
+  const size_t graph_size = (num_vertices + 1 + num_edges) * sizeof(uint64_t);
+  /*
   int fd = -1;
   void *map_raw_address = nullptr;
   std::tie(fd, map_raw_address) = utility::map_file_read_mode(graph_file_name, nullptr, graph_size, 0);
-  if (fd == -1 || map_raw_address == nullptr) {
+  */
+  const size_t size = calculate_umap_pagesize_aligned_graph_file_size(num_vertices, num_edges);
+  if (!utility::extend_file_size(graph_file_name, size)) {
+    std::cerr << "Failed to extend the graph file to " << size << std::endl;
+    std::abort();
+  }
+  void *const map_raw_address = utility::umap_in_file(graph_file_name,
+						      false, //no write, read only
+						      false,
+						      true,
+						      false, //do NOT use mmap
+						      utility::get_file_size(graph_file_name),
+						      nullptr);
+
+  if ( map_raw_address == nullptr) {
     std::cerr << "Failed to map the graph" << std::endl;
     std::abort();
   }
@@ -116,8 +145,12 @@ int main(int argc, char **argv) {
 
   bfs::init_bfs(num_vertices, level.data(), visited_filter.data());
   level[0] = 0; // Start from vertex 0
+
+  const auto bfs_start_time = utility::elapsed_time_sec();
   bfs::run_bfs(num_vertices, index, edges, level.data(), visited_filter.data());
-  std::cout << "Finished BFS" << std::endl;
+  const auto bfs_time = utility::elapsed_time_sec(bfs_start_time);
+  
+  std::cout << "Finished BFS (" << bfs_time <<" seconds)"<< std::endl;
 
   validate_level(level, bfs_level_reference_file_name);
   std::cout << "Passed validation" << std::endl;

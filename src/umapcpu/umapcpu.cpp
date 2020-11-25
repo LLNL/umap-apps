@@ -104,8 +104,8 @@ int main(int argc, char **argv)
   omp_set_num_threads(options.numthreads);
 
   totalbytes = options.numpages*pagesize;
-  base_addr = utility::map_in_file(options.filename, options.initonly,
-      options.noinit, options.usemmap, totalbytes);
+  base_addr = utility::umap_in_file(options.filename, true, options.initonly,
+				   options.noinit, options.usemmap, totalbytes);
   assert(base_addr != NULL);
  
   fprintf(stdout, "%lu pages, %lu threads\n", options.numpages, options.numthreads);

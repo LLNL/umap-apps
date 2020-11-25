@@ -37,15 +37,21 @@ ssize_t get_umap_page_size() {
   return page_size;
 }
 
-void* map_in_file(
+void* umap_in_file(
     std::string filename,
+    bool has_write,
     bool initonly,
     bool noinit,
     bool usemmap,
     uint64_t numbytes,
     void* start_addr)
 {
-  int o_opts = O_RDWR | O_LARGEFILE | O_DIRECT;
+  int o_opts = O_LARGEFILE | O_DIRECT;
+  if(has_write)
+    o_opts |= O_RDWR;
+  else
+    o_opts |= O_RDONLY;
+  
   void* region = NULL;
   int fd;
 
@@ -93,7 +99,7 @@ void* map_in_file(
     return NULL;
   }
 
-  const int prot = PROT_READ|PROT_WRITE;
+  const int prot = (has_write) ?(PROT_READ|PROT_WRITE) : PROT_READ;
 
   if ( usemmap ) {
     int flags = MAP_SHARED | MAP_NORESERVE;
@@ -128,13 +134,14 @@ void* map_in_file(
   return region;
 }
 
-void* map_in_file(
+void* umap_in_file(
     std::string filename,
+    bool has_write,
     bool initonly,
     bool noinit,
     bool usemmap,
     uint64_t numbytes) {
-  return map_in_file(filename, initonly, noinit, usemmap, numbytes, NULL);
+  return umap_in_file(filename, has_write, initonly, noinit, usemmap, numbytes, NULL);
 }
 
 void unmap_file(bool usemmap, uint64_t numbytes, void* region)

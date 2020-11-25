@@ -56,7 +56,7 @@ echo "# BFS "
 echo "##############################################"
 INPUT_GRAPH=$SSD_MNT_PATH/test_graph
 $BIN_PATH/ingest_edge_list -g $INPUT_GRAPH $UMAP_APP_ROOT/src/bfs/data/edge_list_rmat_s10_?_of_4
-$BIN_PATH/test_bfs -n 1017 -m 32768 -g $INPUT_GRAPH -l $UMAP_APP_ROOT/src/bfs/data/bfs_level_reference
+env OMP_SCHEDULE=static $BIN_PATH/test_bfs -n 1017 -m 32768 -g $INPUT_GRAPH -l $UMAP_APP_ROOT/src/bfs/data/bfs_level_reference
 /bin/rm -f $INPUT_GRAPH
 echo ""
 
