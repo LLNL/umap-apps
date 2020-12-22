@@ -155,5 +155,8 @@ int main(int argc, char **argv) {
   validate_level(level, bfs_level_reference_file_name);
   std::cout << "Passed validation" << std::endl;
 
+  utility::unmap_file(false,
+		      utility::get_file_size(graph_file_name),
+		      const_cast<uint64_t *>(index));
   return 0;
 }
