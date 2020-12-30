@@ -23,18 +23,6 @@ if(OPENMP_FOUND)
             ARCHIVE DESTINATION lib/static
             RUNTIME DESTINATION bin )
 
-    add_executable(test_bfs test_bfs.cpp)
-    target_link_libraries(test_bfs ${UMAPLIBDIR}/libumap.a)
-    install(TARGETS test_bfs
-            LIBRARY DESTINATION lib
-            ARCHIVE DESTINATION lib/static
-            RUNTIME DESTINATION bin )
-
-#    configure_file(
-#            "${CMAKE_CURRENT_SOURCE_DIR}/run_bfs_bench.sh"
-#            "${CMAKE_CURRENT_BINARY_DIR}/run_bfs_bench.sh"
-#            COPYONLY
-#    )
 else()
   message("Skipping bfs, OpenMP required")
 endif()
