@@ -1,7 +1,7 @@
 .. _umapsort:
 
 ================
-UMap Sort README
+UMap Sort
 ================
 
 .. include:: ../../src/umapsort/README.md
