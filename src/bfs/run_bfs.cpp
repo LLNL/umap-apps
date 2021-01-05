@@ -19,9 +19,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string>
 #include <fstream>
 
-#include "umap/umap.h"
 #include "bfs_kernel.hpp"
-#include "../utility/umap_file.hpp"
+#include "../utility/map_file.hpp"
 #include "../utility/bitmap.hpp"
 #include "../utility/time.hpp"
 #include "../utility/file.hpp"
@@ -31,6 +30,7 @@ struct bfs_options {
   size_t num_vertices{0};
   size_t num_edges{0};
   std::string graph_file_name;
+  std::string bfs_level_reference_file_name;
   bool use_mmap{false};
 };
 
@@ -61,7 +61,7 @@ void usage() {
 void parse_options(int argc, char **argv,
                    bfs_options &options) {
   int c;
-  while ((c = getopt(argc, argv, "n:m:g:sh")) != -1) {
+  while ((c = getopt(argc, argv, "n:m:g:l:sh")) != -1) {
     switch (c) {
       case 'n': /// Required
         options.num_vertices = std::stoull(optarg);
@@ -75,10 +75,16 @@ void parse_options(int argc, char **argv,
         options.graph_file_name = optarg;
         break;
 
-      case 's':options.use_mmap = true;
+      case 'l':
+        options.bfs_level_reference_file_name = optarg;
         break;
 
-      case 'h':usage();
+      case 's':
+        options.use_mmap = true;
+        break;
+
+      case 'h':
+        usage();
         std::exit(0);
     }
   }
@@ -101,28 +107,33 @@ size_t calculate_umap_pagesize_aligned_graph_file_size(const size_t num_vertices
   return aligned_graph_size;
 }
 
-std::pair<uint64_t *, uint64_t *>
-map_graph(const bfs_options &options) {
+std::pair<uint64_t *, uint64_t *> map_graph(const bfs_options &options) {
+
+  void* map_raw_address;
 
   // Umap requires a pagesize aligned file
   if (!options.use_mmap) {
     const size_t size = calculate_umap_pagesize_aligned_graph_file_size(options.num_vertices, options.num_edges);
     if (!utility::extend_file_size(options.graph_file_name, size)) {
-      std::cerr << "Failed to extend the graph file to " << size << std::endl;
+      std::cerr << "Failed to extend the graph file "<< options.graph_file_name <<" to " << size << std::endl;
       std::abort();
     }
-  }
 
-  void *const map_raw_address = utility::umap_in_file(options.graph_file_name,
-						      false,
-						      false,
-						      true,
-						      options.use_mmap,
-						      utility::get_file_size(options.graph_file_name),
-						      nullptr);
-  if (!map_raw_address) {
-    std::cerr << "Failed to map the graph" << std::endl;
-    std::abort();
+    map_raw_address = utility::map_file(options.graph_file_name,
+                                        false, false, false, //no write, read only
+                                        utility::get_file_size(options.graph_file_name));
+    if (!map_raw_address) {
+      std::cerr << "Failed to umap the graph" << std::endl;
+      std::abort();
+    }
+  }else{
+    map_raw_address = utility::map_file(options.graph_file_name,
+                                        false, false, true, //no write, read only
+                                        utility::get_file_size(options.graph_file_name));
+    if (!map_raw_address) {
+      std::cerr << "Failed to mmap the graph" << std::endl;
+      std::abort();
+    }
   }
 
   uint64_t *const index = static_cast<uint64_t *>(map_raw_address);
@@ -161,6 +172,28 @@ void count_level(const size_t num_vertices, const uint16_t max_level, const uint
   for (uint16_t i = 0; i <= max_level; ++i) {
     std::cout << i << "\t" << cnt[i] << std::endl;
   }
+}
+
+void validate_level(const std::vector<uint16_t>& level, const std::string& bfs_level_reference_file_name) {
+
+  std::ifstream ifs(bfs_level_reference_file_name);
+  if (!ifs.is_open()) {
+    std::cerr << "Can not open: "<< bfs_level_reference_file_name << std::endl;
+    std::abort();
+  }
+
+  std::vector<uint16_t> ref_level(level.size(), bfs::k_infinite_level);
+  uint64_t id;
+  uint16_t lv;
+  while (ifs >> id >> lv) {
+    ref_level[id] = lv;
+  }
+
+  if (level != ref_level) {
+    std::cerr << "BFS level is wrong" << std::endl;
+    std::abort();
+  }
+
 }
 
 void print_num_page_faults() {
@@ -202,6 +235,11 @@ int main(int argc, char **argv) {
   print_num_page_faults();
 
   count_level(options.num_vertices, max_level, level.data());
+
+  if( !options.bfs_level_reference_file_name.empty() ){
+      validate_level(level, options.bfs_level_reference_file_name);
+      std::cout << "Passed validation" << std::endl;
+  }
 
   utility::unmap_file(options.use_mmap,
                       utility::get_file_size(options.graph_file_name),

@@ -1,7 +1,7 @@
 .. _bfs:
 
 ==========
-BFS README
+BFS
 ==========
 
 .. include:: ../../src/bfs/README.md
