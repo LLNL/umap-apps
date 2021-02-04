@@ -25,7 +25,7 @@
 
 #include "umap/umap.h"
 #include "../utility/commandline.hpp"
-#include "../utility/umap_file.hpp"
+#include "../utility/map_file.hpp"
 #include "../utility/time.hpp"
 
 using namespace std;
@@ -109,12 +109,12 @@ int main(int argc, char **argv)
 
   umt_getoptions(&options, argc, argv);
 
-  pagesize = (uint64_t)utility::get_umap_page_size();
+  pagesize = (uint64_t) umapcfg_get_umap_page_size();
 
   omp_set_num_threads(options.numthreads);
 
   totalbytes = options.numpages*pagesize;
-  range = utility::map_in_file(options.filename, options.initonly, options.noinit, options.usemmap, totalbytes);
+  range = utility::map_file(options.filename, true, true, options.usemmap, totalbytes);
   if (range == nullptr)
     return -1;
 
@@ -136,7 +136,7 @@ int main(int argc, char **argv)
 
       std::cout << "Mapping " << mapsize[i] << " bytes at " << range << " to " << filenames[i] << std::endl;
 
-      void* val = utility::map_in_file(filenames[i], options.initonly, options.noinit, options.usemmap, mapsize[i], range);
+      void* val = utility::map_file(filenames[i], true, true, options.usemmap, mapsize[i], range);
       if (val == nullptr) {
         std::cerr << "Failed to map " << filenames[i] << std::endl;
         return -1;

@@ -11,8 +11,8 @@
  * Public License along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#ifndef _UMAP_FILE_HPP_
-#define _UMAP_FILE_HPP_
+#ifndef _MAP_FILE_HPP_
+#define _MAP_FILE_HPP_
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -27,32 +27,28 @@
 
 namespace utility {
 
-ssize_t get_umap_page_size() {
-  const ssize_t page_size = umapcfg_get_umap_page_size();
-  if (page_size == -1) {
-    ::perror("umapcfg_get_umap_page_size failed");
-    std::cerr << "errno: " << errno << std::endl;
-  }
-
-  return page_size;
-}
-
-void* map_in_file(
+void* map_file(
     std::string filename,
-    bool initonly,
-    bool noinit,
+    bool need_init,  
+    bool has_write,
     bool usemmap,
     uint64_t numbytes,
-    void* start_addr)
+    void* start_addr=nullptr)
 {
-  int o_opts = O_RDWR | O_LARGEFILE | O_DIRECT;
+  int o_opts = O_LARGEFILE | O_DIRECT;
   void* region = NULL;
   int fd;
 
-  if ( initonly || !noinit ) {
+  if ( need_init ) {
     o_opts |= O_CREAT;
+    has_write = true;
     unlink(filename.c_str());   // Remove the file if it exists
   }
+
+  if(has_write)
+    o_opts |= O_RDWR;
+  else
+    o_opts |= O_RDONLY;
 
   if ( ( fd = open(filename.c_str(), o_opts, S_IRUSR | S_IWUSR) ) == -1 ) {
     std::string estr = "Failed to open/create " + filename + ": ";
@@ -66,8 +62,7 @@ void* map_in_file(
       int x;
       if ( ( x = posix_fallocate(fd, 0, numbytes) != 0 ) ) {
         std::ostringstream ss;
-        ss << "Failed to pre-allocate " <<
-          numbytes << " bytes in " << filename << ": ";
+        ss << "Failed to pre-allocate " << numbytes << " bytes in " << filename << ": ";
         perror(ss.str().c_str());
         return NULL;
       }
@@ -89,11 +84,11 @@ void* map_in_file(
 
   if ( (off_t)sbuf.st_size != (numbytes) ) {
     std::cerr << filename << " size " << sbuf.st_size
-      << " does not match specified data size of " << (numbytes) << std::endl;
+              << " does not match specified data size of " << (numbytes) << std::endl;
     return NULL;
   }
 
-  const int prot = PROT_READ|PROT_WRITE;
+  const int prot = (has_write) ?(PROT_READ|PROT_WRITE) : PROT_READ;
 
   if ( usemmap ) {
     int flags = MAP_SHARED | MAP_NORESERVE;
@@ -126,15 +121,6 @@ void* map_in_file(
   }
 
   return region;
-}
-
-void* map_in_file(
-    std::string filename,
-    bool initonly,
-    bool noinit,
-    bool usemmap,
-    uint64_t numbytes) {
-  return map_in_file(filename, initonly, noinit, usemmap, numbytes, NULL);
 }
 
 void unmap_file(bool usemmap, uint64_t numbytes, void* region)
