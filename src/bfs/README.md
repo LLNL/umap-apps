@@ -61,7 +61,7 @@
 * You can get #of vertices and #of edges by running ingest\_edge\_list.
 * If '-s' is specified, the program uses system mmap instead of umap.
 * The interface to the umap runtime library configuration is controlled by environment variables, see [Umap Runtime Environment Variables](https://llnl-umap.readthedocs.io/en/develop/environment_variables.html).
-* This is a multi-threads (OpenMP) program. You can control the number of threads using the environment variable OMP\_NUM\_THREADS.
+* This is a multi-threads (OpenMP) program. You can control the number of threads using the environment variable OMP\_NUM\_THREADS. It uses the static schedule.
 
 
 ## Tips for Running Benchmark (on large-scale)
