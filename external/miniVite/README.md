@@ -1,28 +1,33 @@
-# miniVite + Umap
+# miniVite + umap
 
-This page describes how to build [miniVite](https://github.com/Exa-Graph/miniVite) with Umap.
+This page describes how to build [miniVite](https://github.com/Exa-Graph/miniVite) with umap.
 
 
 ## Overview
 
 miniVite has a mode that uses [Metall](https://github.com/LLNL/metall) to store a graph into persistent memory.
-Metall has a mode that uses Umap instead of system mmap() internally.
-Therefore, to build miniVite with Umap, all one has to do is have Metall use Umap.
+Metall has a mode that uses umap instead of system mmap() internally.
+Therefore, to build miniVite with umap, all one has to do is have Metall use umap.
 
 The miniVite version that works with Metall comes with a CMake file.
-On this instruction page, we use the CMake file to build miniVite with Umap. 
+On this instruction page, we use the CMake file to build miniVite with umap. 
 
 
 ## Required
 We assume that the following items are already available (installed) on the system:
 - GCC 8.1 or more.
+- MPI  
 - CMake 3.10 or more.
-- Umap
+- umap
 
 
 ## Build with Spack
 
 ```bash
+# Install and load umap
+spack install umap
+spack load umap
+
 # Install and load Metall
 spack install metall
 spack load metall
@@ -36,26 +41,23 @@ cd build
 cmake ../ \
  -DUSE_METALL=ON \
  -DUSE_UMAP=ON \
- -DUMAP_ROOT=/path/to/umap/install
 make
 ```
 
 Use `CMAKE_CXX_COMPILER=/path/to/g++` and `MPI_CXX_COMPILER=/path/to/mpic++` CMake options to specify a C++ compiler and a MPI compiler, respectively.
-
-If Umap has been installed by Spack, one can avoid using `UMAP_ROOT` CMake option by typing `spack load umap` before `cmake`,
 
 
 ## Build without Spack
 
 ### Example
 
-Here are the CMake variables to specify the locations of Boost C++ Libraries, Metall, and Umap manually.
+Here are the CMake variables to specify the locations of Boost C++ Libraries, Metall, and umap manually.
 * `BOOST_ROOT=/path/to/boost`
 * `METALL_ROOT=/path/to/metall`
 * `UMAP_ROOT=/path/to/umap/install/dir/root`
 
 miniVite uses header files of Boost C++ Libraries and Metall. One does not need to build them.
-On the other hand, one has to build and install Umap.
+On the other hand, one has to build and install umap.
 
 
 ```bash
