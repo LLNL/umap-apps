@@ -25,7 +25,7 @@ We assume that the following items are already available (installed) on the syst
 One can use Spack to install UMap and Metall.
 Spack also can set environmental variables properly,
 and the CMake file in miniVite uses the variables to locate UMap and Metall.
-On the other hand, one still need to build miniVite manually using CMake.
+On the other hand, one still needs to build miniVite manually using CMake.
 
 ```bash
 # Install and load UMap
@@ -53,7 +53,7 @@ Use `CMAKE_CXX_COMPILER=/path/to/g++` and `MPI_CXX_COMPILER=/path/to/mpic++` CMa
 
 ## Build without Spack
 
-miniVite uses header files of Boost C++ Libraries and Metall. One does not need to build them.
+miniVite uses header files of Boost C++ Libraries and Metall. One does not needs to build them.
 On the other hand, one has to build and install UMap.
 To install UMap, see [here](https://github.com/LLNL/umap).
 
