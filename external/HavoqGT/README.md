@@ -1,26 +1,31 @@
 
 # Required to Build HavoqGT with UMap
 
+We assume that the following items are already available (installed) on the system:
 - GCC 8.1 or more.
 - MPI
 - CMake 2.6 or more.
-- [Boost C++ Libraries](https://www.boost.org/) 1.64 or more.
-- [Metall](https://github.com/LLNL/metall)
+
+Since HavoqGT is not a read-only application,
+the write-protect support for userfaultfd() must be supported on the system.
 
 # Build
-One can install Boost C++ Libraries and Metall using Spack.
-A proper version of Boost C++ Libraries will be installed along with Metall.
+
+HaoqGT depends on Boost C++ Libraries and [Metall](https://github.com/LLNL/metall).
+One can install them and UMap using Spack.
 
 An example of building HavoqGT using Spack is:
 ```bash
 spack install umap
 spack load umap
 
+# A proper version of Boost C++ Libraries will be installed along with Metall.
 spack install metall
 spack load metall
 
 git clone https://github.com/LLNL/havoqgt.git
 cd havoqgt
+git checkout develop
 mkdir build_dir
 cd build_dir
 cmake ../ \
@@ -64,6 +69,7 @@ export METALL_ROOT=${PWD}/metall
 
 git clone https://github.com/LLNL/havoqgt.git
 cd havoqgt
+git checkout develop
 mkdir build_dir
 cd build_dir
 cmake ../ \

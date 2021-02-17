@@ -14,10 +14,14 @@ On this instruction page, we use the CMake file to build miniVite with UMap.
 
 
 ## Required
+
 We assume that the following items are already available (installed) on the system:
 - GCC 8.1 or more.
 - MPI
 - CMake 3.10 or more.
+  
+Since miniVite is not a read-only application,
+the write-protect support for userfaultfd() must be supported on the system.
 
 
 ## Build with Spack
