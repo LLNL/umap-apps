@@ -6,8 +6,7 @@ We assume that the following items are already available (installed) on the syst
 - MPI
 - CMake 2.6 or more.
 
-Since HavoqGT is not a read-only application,
-the write-protect support for userfaultfd() must be supported on the system.
+HavoqGT creates, analyzes, modifies, and saves graphs. To support this usage, the write-protect feature of userfaultfd() must be available on the system's Linux kernel.
 
 # Build
 
