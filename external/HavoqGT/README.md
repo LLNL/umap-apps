@@ -11,7 +11,8 @@ the write-protect support for userfaultfd() must be supported on the system.
 
 # Build
 
-HaoqGT depends on Boost C++ Libraries and [Metall](https://github.com/LLNL/metall).
+HavoqGT depends on Boost C++ Libraries and [Metall](https://github.com/LLNL/metall).
+Metall also depends on Boost C++ Libraries.
 One can install them and UMap using Spack.
 
 An example of building HavoqGT using Spack is:
