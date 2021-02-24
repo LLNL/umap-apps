@@ -74,7 +74,7 @@ tar xvf boost_1_75_0.tar.gz
 export BOOST_ROOT=${PWD}/boost_1_75_0
 
 # Download Metall
-git clone git@github.com:LLNL/metall.git
+git clone https://github.com/LLNL/metall.git
 export METALL_ROOT=${PWD}/metall
 
 git clone https://github.com/LLNL/havoqgt.git

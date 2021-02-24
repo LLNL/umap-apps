@@ -40,7 +40,7 @@ spack install metall
 spack load metall
 
 # Build miniVite
-git clone git@github.com:Exa-Graph/miniVite.git
+git clone https://github.com/Exa-Graph/miniVite.git
 cd minivite
 git checkout metallds2
 mkdir build
@@ -75,11 +75,11 @@ tar xvf boost_1_75_0.tar.gz
 export BOOST_ROOT=$PWD/boost_1_75_0
 
 # Download Metall
-git clone git@github.com:LLNL/metall.git
+git clone https://github.com/LLNL/metall.git
 export METALL_ROOT=${PWD}/metall
 
 # Build miniVite
-git clone git@github.com:Exa-Graph/miniVite.git
+git clone https://github.com/Exa-Graph/miniVite.git
 cd minivite
 git checkout metallds2
 mkdir build
