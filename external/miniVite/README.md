@@ -20,7 +20,7 @@ We assume that the following items are already available (installed) on the syst
 - MPI
 - CMake 3.10 or more.
 
-The write-protect support for userfaultfd() must be supported on the system.
+The write-protect feature of userfaultfd() must be available on the system's Linux kernel.
 
 
 ## Build with Spack

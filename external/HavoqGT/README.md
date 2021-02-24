@@ -1,3 +1,10 @@
+# Introduction
+
+This page shows how to build [HavoqGT](https://github.com/LLNL/havoqgt) with UMap.
+
+HavoqGT (Highly Asynchronous Visitor Queue Graph Toolkit) is a framework for expressing asynchronous vertex-centric graph algorithms.
+It uses the file-backed mmap mechanism to allocate graphs into a file system.
+
 
 # Required to Build HavoqGT with UMap
 
@@ -6,7 +13,7 @@ We assume that the following items are already available (installed) on the syst
 - MPI
 - CMake 2.6 or more.
 
-[HavoqGT](https://github.com/LLNL/havoqgt) creates, analyzes, modifies, and saves graphs. To support this usage, the write-protect feature of userfaultfd() must be available on the system's Linux kernel.
+HavoqGT creates, analyzes, modifies, and saves graphs. To support this usage, the write-protect feature of userfaultfd() must be available on the system's Linux kernel.
 
 # Build
 
@@ -100,12 +107,20 @@ HavoqGT uses MPI for distributed-memory communication.
 Please note that the actual MPI launch command depends on your environment.
 
 ```bash
-export GRAPH_PATH=/dev/shm/graph
-# Graph is constructed at '/dev/shm/graph'
-# -o <path> : Output graph base filename
+
+# In this example, we create a graph at "/mnt/ssd/graph"
+export GRAPH_PATH=/mnt/ssd/graph
+
+# Create a graph
+# -o <path> : Output graph filename
 mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/ingest_edge_list -o ${GRAPH_PATH} /path/to/edge_list/file1 /path/to/edge_list/file2 # List edge list files at the end
 
-# -i <path> : Input graph base filename
+# Run BFS on the graph created above
+# -i <path> : Input graph filename
 # -s <int>  : Source vertex of BFS (Default is 0)
 mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/run_bfs -i ${GRAPH_PATH} -s 0
+
+# Run CC on the graph created above
+# -i <path> : Input graph filename
+mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/run_cc -i ${GRAPH_PATH}
 ```
