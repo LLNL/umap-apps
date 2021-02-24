@@ -6,7 +6,7 @@ We assume that the following items are already available (installed) on the syst
 - MPI
 - CMake 2.6 or more.
 
-HavoqGT creates, analyzes, modifies, and saves graphs. To support this usage, the write-protect feature of userfaultfd() must be available on the system's Linux kernel.
+[HavoqGT](https://github.com/LLNL/havoqgt) creates, analyzes, modifies, and saves graphs. To support this usage, the write-protect feature of userfaultfd() must be available on the system's Linux kernel.
 
 # Build
 
@@ -84,7 +84,6 @@ cmake ../ \
   -DUSE_UMAP=on \
   -DUMAP_ROOT=/path/to/umap/install
 make
-<<<<<<< HEAD
 
 export HAVOQGT_BUILD_ROOT=${PWD}
 
@@ -109,8 +108,4 @@ mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/ingest_edge_list -o ${GRAPH_PATH} /path/t
 # -i <path> : Input graph base filename
 # -s <int>  : Source vertex of BFS (Default is 0)
 mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/run_bfs -i ${GRAPH_PATH} -s 0
-=======
-make test # option
-make install # option
->>>>>>> 1e9d0c2851ddc1ccf383169701413f6643ab1e57
 ```
