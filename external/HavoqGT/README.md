@@ -25,7 +25,6 @@ spack load metall
 
 git clone https://github.com/LLNL/havoqgt.git
 cd havoqgt
-git checkout develop
 mkdir build_dir
 cd build_dir
 cmake ../ \
@@ -35,8 +34,12 @@ cmake ../ \
   -DMPIEXEC_NUMPROC_FLAG="-n" \
   -DUSE_UMAP=on
 make
-make test # option
-make install # option
+
+export HAVOQGT_BUILD_ROOT=${PWD}
+
+# Option.
+# runs two graph algorithms as correctness testing: breadth-first search (BFS) and connected components (CC).
+make test
 ```
 
 Use `CMAKE_CXX_COMPILER=/path/to/g++` and `MPI_CXX_COMPILER=/path/to/mpic++` CMake options to specify a C++ compiler and a MPI compiler, respectively.
@@ -69,7 +72,6 @@ export METALL_ROOT=${PWD}/metall
 
 git clone https://github.com/LLNL/havoqgt.git
 cd havoqgt
-git checkout develop
 mkdir build_dir
 cd build_dir
 cmake ../ \
@@ -82,6 +84,28 @@ cmake ../ \
   -DUSE_UMAP=on \
   -DUMAP_ROOT=/path/to/umap/install
 make
-make test # option
-make install # option
+
+export HAVOQGT_BUILD_ROOT=${PWD}
+
+# Option.
+# runs two graph algorithms as correctness testing: breadth-first search (BFS) and connected components (CC).
+make test
+```
+
+
+# Run
+
+Here is how to run two example graph programs (BFS and CC) in HavoqGT.
+HavoqGT uses MPI for distributed-memory communication.
+Please note that the actual MPI launch command depends on your environment.
+
+```bash
+export GRAPH_PATH=/dev/shm/graph
+# Graph is constructed at '/dev/shm/graph'
+# -o <path> : Output graph base filename
+mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/ingest_edge_list -o ${GRAPH_PATH} /path/to/edge_list/file1 /path/to/edge_list/file2 # List edge list files at the end
+
+# -i <path> : Input graph base filename
+# -s <int>  : Source vertex of BFS (Default is 0)
+mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/run_bfs -i ${GRAPH_PATH} -s 0
 ```

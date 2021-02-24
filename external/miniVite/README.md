@@ -19,9 +19,8 @@ We assume that the following items are already available (installed) on the syst
 - GCC 8.1 or more.
 - MPI
 - CMake 3.10 or more.
-  
-Since miniVite is not a read-only application,
-the write-protect support for userfaultfd() must be supported on the system.
+
+The write-protect support for userfaultfd() must be supported on the system.
 
 
 ## Build with Spack
@@ -98,10 +97,13 @@ make
 ## Run miniVite (example)
 
 ```bash
-# Run community detection and store graph:
-mpiexec -n 2 ./miniVite -n 64 -s "/tmp"
+# Run community detection and store graph.
+# -n : The total number of vertices of the generated graph.
+# -s : A path to store the graph.
+mpiexec -n 2 ./miniVite -n 64 -s "/mnt/ssd/graph"
 
 # Load graph and run community detection
-# (requires the same number of processes as above):
-mpiexec -n 2 ./miniVite -c "/tmp"
+# (requires the same number of processes as above).
+# -c : A path to the stored graph.
+mpiexec -n 2 ./miniVite -c "/mnt/ssd/graph"
 ```
