@@ -1,6 +1,6 @@
 # miniVite + UMap
 
-MiniVite is benchmark in the ECP ExaGraph suite that implements a single phase of Louvain method for community detection. This page describes how to build [miniVite](https://github.com/Exa-Graph/miniVite) with UMap.
+MiniVite is benchmark in the ECP ExaGraph suite that implements a single phase of the Louvain method for community detection. This page describes how to build [miniVite](https://github.com/Exa-Graph/miniVite) with UMap.
 
 
 ## Overview
