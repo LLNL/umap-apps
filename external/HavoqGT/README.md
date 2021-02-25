@@ -89,7 +89,7 @@ cmake ../ \
   -DBOOST_ROOT=${BOOST_ROOT} \
   -DMETALL_ROOT=${METALL_ROOT} \
   -DUSE_UMAP=on \
-  -DUMAP_ROOT=/path/to/umap/install
+  -DUMAP_ROOT=${UMAP_ROOT}/install
 make
 
 export HAVOQGT_BUILD_ROOT=${PWD}
@@ -106,6 +106,12 @@ Here is how to run two example graph programs (BFS and CC) in HavoqGT.
 HavoqGT uses MPI for distributed-memory communication.
 Please note that the actual MPI launch command depends on your environment.
 
+To construct a graph, one can use `ingest_edge_list` program in HavoqGT.
+The program reads edges stored in file(s) and constructs a graph.
+Each line of an edge list file is a pair of source vertex ID and target vertex ID.
+An example input edge list file is [here](https://github.com/snap-stanford/snap/blob/master/examples/node2vec/graph/karate.edgelist).
+
+
 ```bash
 
 # In this example, we create a graph at "/mnt/ssd/graph"
@@ -113,7 +119,8 @@ export GRAPH_PATH=/mnt/ssd/graph
 
 # Create a graph
 # -o <path> : Output graph filename
-mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/ingest_edge_list -o ${GRAPH_PATH} /path/to/edge_list/file1 /path/to/edge_list/file2 # List edge list files at the end
+# List edge list files at the end (ingest_edge_list can take an arbitrary number of edge list files)
+mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/ingest_edge_list -o ${GRAPH_PATH} /path/to/edge_list/file1 /path/to/edge_list/file2
 
 # Run BFS on the graph created above
 # -i <path> : Input graph filename

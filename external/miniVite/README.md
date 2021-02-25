@@ -89,7 +89,7 @@ cmake ../ \
  -DUSE_METALL=ON \
  -DMETALL_ROOT=${METALL_ROOT} \
  -DUSE_UMAP=ON \
- -DUMAP_ROOT=/path/to/umap/install
+ -DUMAP_ROOT=${UMAP_ROOT}
 make
 ```
 
@@ -99,11 +99,11 @@ make
 ```bash
 # Run community detection and store graph.
 # -n : The total number of vertices of the generated graph.
-# -s : A path to store the graph.
-mpiexec -n 2 ./miniVite -n 64 -s "/mnt/ssd/graph"
+# -g : A path to store the graph.
+mpiexec -n 2 ./miniVite -n 64 -g "/mnt/ssd/graph"
 
 # Load graph and run community detection
 # (requires the same number of processes as above).
-# -c : A path to the stored graph.
-mpiexec -n 2 ./miniVite -c "/mnt/ssd/graph"
+# -i : A path to the stored graph.
+mpiexec -n 2 ./miniVite -i "/mnt/ssd/graph"
 ```
