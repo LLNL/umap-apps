@@ -19,7 +19,7 @@ HavoqGT creates, analyzes, modifies, and saves graphs. To support this usage, th
 
 HavoqGT depends on Boost C++ Libraries and [Metall](https://github.com/LLNL/metall).
 Metall also depends on Boost C++ Libraries.
-One can install them and UMap using Spack.
+One can install them and UMap using [Spack](https://spack.io/).
 
 An example of building HavoqGT using Spack is:
 ```bash

@@ -25,7 +25,7 @@ The write-protect feature of userfaultfd() must be available on the system's Lin
 
 ## Build with Spack
 
-One can use Spack to install UMap and Metall.
+One can use [Spack](https://spack.io/) to install UMap and Metall.
 Spack also can set environmental variables properly,
 and the CMake file in miniVite uses the variables to locate UMap and Metall.
 On the other hand, one still needs to build miniVite manually using CMake.
