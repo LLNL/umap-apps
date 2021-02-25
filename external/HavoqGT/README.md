@@ -64,10 +64,12 @@ export HAVOQGT_BUILD_ROOT=${PWD}
 make test
 ```
 
+*The example above was tested with Umap (commit ID e784957) and Metall v0.10.*
+
 
 ## Build with Spack
 
-***Pending availability of Umap(commit ID e784957) and Metall revision v0.10.***
+***Pending availability of Umap (commit ID e784957) and Metall v0.10.***
 
 HavoqGT depends on Boost C++ Libraries and [Metall](https://github.com/LLNL/metall).
 Metall also depends on Boost C++ Libraries.
@@ -118,7 +120,6 @@ The program reads edges stored in file(s) and constructs a graph.
 Each line of an edge list file is a pair of source vertex ID and target vertex ID.
 An example input edge list file is [here](https://github.com/snap-stanford/snap/blob/master/examples/node2vec/graph/karate.edgelist).
 
-
 ```bash
 
 # In this example, we create a graph at "/mnt/ssd/graph"
@@ -138,3 +139,6 @@ mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/run_bfs -i ${GRAPH_PATH} -s 0
 # -i <path> : Input graph filename
 mpiexec -n 2 ${HAVOQGT_BUILD_ROOT}/src/run_cc -i ${GRAPH_PATH}
 ```
+
+To see more command-line options in the executables,
+run them with `-h` option.

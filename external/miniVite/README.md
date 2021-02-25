@@ -59,10 +59,12 @@ cmake ../ \
 make
 ```
 
+*The example above was tested with Umap (commit ID e784957) and Metall v0.10.*
+
 
 ## Build with Spack
 
-***Pending availability of Umap(commit ID e784957) and Metall revision v0.10.***
+***Pending availability of Umap (commit ID e784957) and Metall v0.10.***
 
 One can use [Spack](https://spack.io/) to install UMap and Metall.
 Spack also can set environmental variables properly,
