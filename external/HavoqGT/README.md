@@ -1,3 +1,4 @@
+The HavoqGT library consists of infrastructure for efficient parallel graph traversal and includes many important utilities and analysis algorithms such as Breadth First Search, connected components, triangle counting, k-cores, and community detection. HavoqGT algorithms can be built to use UMap as detailed below.
 
 # Required to Build HavoqGT with UMap
 
