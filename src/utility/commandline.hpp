@@ -40,7 +40,6 @@ typedef struct {
   int64_t  numfiles;
   uint64_t num_filler_threads;
   uint64_t num_evictor_threads;
-  uint64_t readahead;
   uint64_t evict_hiwater;
   uint64_t evict_lowater;
 
@@ -80,7 +79,6 @@ static void usage(char* pname)
   << " UMAP_PAGESIZE                   - currently: " << umapcfg_get_umap_page_size() << " bytes\n"
   << " UMAP_PAGE_FILLERS               - currently: " << umapcfg_get_num_fillers() << " fillers\n"
   << " UMAP_PAGE_EVICTORS              - currently: " << umapcfg_get_num_evictors() << " evictors\n"
-  << " UMAP_READ_AHEAD                 - currently: " << umapcfg_get_read_ahead() << " evictors\n"
   << " UMAP_BUFSIZE                    - currently: " << umapcfg_get_max_pages_in_buffer() << " pages\n"
   << " UMAP_EVICT_LOW_WATER_THRESHOLD  - currently: " << umapcfg_get_evict_low_water_threshold() << " percent full\n"
   << " UMAP_EVICT_HIGH_WATER_THRESHOLD - currently: " << umapcfg_get_evict_high_water_threshold() << " percent full\n"
@@ -108,7 +106,6 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
   testops->dirname = DIRNAME;
   testops->numfiles = NUMFILES;
   testops->pagesize = umapcfg_get_umap_page_size();
-  testops->readahead = umapcfg_get_read_ahead();
   testops->evict_lowater = umapcfg_get_evict_low_water_threshold();
   testops->evict_hiwater = umapcfg_get_evict_high_water_threshold();
 

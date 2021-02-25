@@ -44,7 +44,7 @@
 
 #include "umap/umap.h"
 #include "../utility/commandline.hpp"
-#include "../utility/umap_file.hpp"
+#include "../utility/map_file.hpp"
 
 #define handle_error_en(en, msg) \
   do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -104,8 +104,9 @@ int main(int argc, char **argv)
   omp_set_num_threads(options.numthreads);
 
   totalbytes = options.numpages*pagesize;
-  base_addr = utility::map_in_file(options.filename, options.initonly,
-      options.noinit, options.usemmap, totalbytes);
+  base_addr = utility::map_file(options.filename, 
+                                true, true,
+                                options.usemmap, totalbytes);
   assert(base_addr != NULL);
  
   fprintf(stdout, "%lu pages, %lu threads\n", options.numpages, options.numthreads);

@@ -1,6 +1,6 @@
 # UMAP Applications
 
-[![Documentation Status](https://readthedocs.org/projects/umap-apps/badge/?version=latest)](https://umap-apps.readthedocs.io/en/develop/?badge=develop)
+[![Documentation Status](https://readthedocs.org/projects/umap-apps/badge/?version=latest)](https://umap-apps.readthedocs.io/en/latest)
 
 This repository contains applications and prototypes that use the umap()
 library.

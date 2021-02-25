@@ -61,8 +61,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.todo',
     'sphinx.ext.mathjax',
-    'breathe',
-    'exhale'
+    'breathe'
+#   'exhale'
 ]
 
 breathe_projects = { 'umap-apps': "../doxygen/xml/" }

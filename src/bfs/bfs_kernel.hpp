@@ -101,6 +101,7 @@ uint16_t run_bfs(const size_t num_vertices,
     if (!visited_new_vertex) break;
 
     ++current_level;
+    printf("current_level = %d \n", current_level);
     visited_new_vertex = false;
   } /// End of BFS main loop
 

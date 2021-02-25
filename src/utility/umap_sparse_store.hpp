@@ -31,7 +31,7 @@
 
 #include "umap/umap.h"
 #include "umap/store/SparseStore.h"
-#include "umap_file.hpp"
+#include "map_file.hpp"
 
 namespace utility {
   namespace{
@@ -85,14 +85,17 @@ int remove_directory(std::string root_path){
      }
     
      // Umap::SparseStore* store;
-     size_t page_size = utility::get_umap_page_size();
-     store = new Umap::SparseStore(numbytes,page_size,root_path,file_size);
+     size_t page_size = utility::umt_getpagesize();
 
-     // Check status to make sure that the store object was able to open the directory
-     if (store->get_directory_creation_status() != 0){
-       std::cerr << "Error: Failed to create directory at " << root_path << std::endl;
-       return NULL;
+     if (noinit){
+       bool read_only = false;
+       store = new Umap::SparseStore(root_path.c_str(),read_only);
      }
+     
+     else{
+       store = new Umap::SparseStore(numbytes,page_size,root_path,file_size);
+     }
+
 
      // call umap
      int flags = UMAP_PRIVATE;
