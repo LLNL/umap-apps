@@ -28,7 +28,6 @@ miniVite uses header files of Boost C++ Libraries and Metall. One does not needs
 On the other hand, one has to build and install UMap.
 To install UMap, see [here](https://github.com/LLNL/umap).
 
-Without Spack, one has to tell miniVite's CMake file the location of required libraries.
 Here are the CMake variables to specify the locations of Boost C++ Libraries, Metall, and UMap manually.
 * `BOOST_ROOT=/path/to/boost`
 * `METALL_ROOT=/path/to/metall`
