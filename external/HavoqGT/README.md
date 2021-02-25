@@ -6,7 +6,9 @@ HavoqGT (Highly Asynchronous Visitor Queue Graph Toolkit) is a framework for exp
 It uses the file-backed mmap mechanism to allocate graphs into a file system.
 
 
-# Required to Build HavoqGT with UMap
+# Build
+
+## Required
 
 We assume that the following items are already available (installed) on the system:
 - GCC 8.1 or more.
@@ -14,43 +16,6 @@ We assume that the following items are already available (installed) on the syst
 - CMake 2.6 or more.
 
 HavoqGT creates, analyzes, modifies, and saves graphs. To support this usage, the write-protect feature of userfaultfd() must be available on the system's Linux kernel.
-
-# Build
-
-HavoqGT depends on Boost C++ Libraries and [Metall](https://github.com/LLNL/metall).
-Metall also depends on Boost C++ Libraries.
-One can install them and UMap using [Spack](https://spack.io/).
-
-An example of building HavoqGT using Spack is:
-```bash
-spack install umap
-spack load umap
-
-# A proper version of Boost C++ Libraries will be installed along with Metall.
-spack install metall
-spack load metall
-
-git clone https://github.com/LLNL/havoqgt.git
-cd havoqgt
-mkdir build_dir
-cd build_dir
-cmake ../ \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_CXX_FLAGS="-std=c++17 -lrt -lstdc++fs -lpthread" \
-  -DHAVOQGT_BUILD_TEST=TRUE \
-  -DMPIEXEC_NUMPROC_FLAG="-n" \
-  -DUSE_UMAP=on
-make
-
-export HAVOQGT_BUILD_ROOT=${PWD}
-
-# Option.
-# runs two graph algorithms as correctness testing: breadth-first search (BFS) and connected components (CC).
-make test
-```
-
-Use `CMAKE_CXX_COMPILER=/path/to/g++` and `MPI_CXX_COMPILER=/path/to/mpic++` CMake options to specify a C++ compiler and a MPI compiler, respectively.
-To change the install directory, one can use `CMAKE_INSTALL_PREFIX` CMake option.
 
 
 ## Build without Spack
@@ -98,6 +63,48 @@ export HAVOQGT_BUILD_ROOT=${PWD}
 # runs two graph algorithms as correctness testing: breadth-first search (BFS) and connected components (CC).
 make test
 ```
+
+
+## Build with Spack
+
+***Pending availability of Umap(commit ID e784957) and Metall revision v0.10.***
+
+HavoqGT depends on Boost C++ Libraries and [Metall](https://github.com/LLNL/metall).
+Metall also depends on Boost C++ Libraries.
+One can install them and UMap using [Spack](https://spack.io/).
+
+An example of building HavoqGT using Spack is:
+```bash
+spack install umap
+spack load umap
+
+# A proper version of Boost C++ Libraries will be installed along with Metall.
+spack install metall
+spack load metall
+
+git clone https://github.com/LLNL/havoqgt.git
+cd havoqgt
+mkdir build_dir
+cd build_dir
+cmake ../ \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_FLAGS="-std=c++17 -lrt -lstdc++fs -lpthread" \
+  -DHAVOQGT_BUILD_TEST=TRUE \
+  -DMPIEXEC_NUMPROC_FLAG="-n" \
+  -DUSE_UMAP=on
+make
+
+export HAVOQGT_BUILD_ROOT=${PWD}
+
+# Option.
+# runs two graph algorithms as correctness testing: breadth-first search (BFS) and connected components (CC).
+make test
+```
+
+Use `CMAKE_CXX_COMPILER=/path/to/g++` and `MPI_CXX_COMPILER=/path/to/mpic++` CMake options to specify a C++ compiler and a MPI compiler, respectively.
+To change the install directory, one can use `CMAKE_INSTALL_PREFIX` CMake option.
+
+
 
 
 # Run
