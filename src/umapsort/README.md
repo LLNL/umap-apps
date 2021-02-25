@@ -12,3 +12,13 @@ drop_page_cache
 free_mem 
 env UMAP_PAGESIZE=$umap_psize ./umapsort -f ${SSD_MNT_PATH}/data_file -p $(((96*1024*1024*1024)/umap_psize)) -N 1 -t 4
 ```
+
+### Use SparseStore
+
+To use UMap's SparseStore opbject:
+
+```
+drop_page_cache
+free_mem
+env UMAP_PAGESIZE=$umap_psize ./umapsort -d ${SSD_MNT_PATH}/base_directory -p $(((96*1024*1024*1024)/umap_psize)) -N 1 -t 4 --use_sparse_store
+```

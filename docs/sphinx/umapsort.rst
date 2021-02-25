@@ -4,4 +4,4 @@
 UMap Sort
 ================
 
-.. mdinclude:: ../../src/umapsort/README.md
+.. include:: ../../src/umapsort/README.md
