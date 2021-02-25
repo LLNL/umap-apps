@@ -51,4 +51,4 @@ bash ../../../bench/adjacency_list/run_bench.sh -d /mnt/ssd/bench
 # see the script: bench/adjacency_list/run_bench.sh
 ```
 
-Initial evaluation results are available [at](http://sc20.supercomputing.org/proceedings/tech_poster/tech_poster_pages/rpost156.html).
+Initial evaluation results are available [here](http://sc20.supercomputing.org/proceedings/tech_poster/tech_poster_pages/rpost156.html).
