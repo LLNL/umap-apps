@@ -1,6 +1,8 @@
-# Overview
+# Introduction
 
+MiniVite is benchmark in the ECP ExaGraph suite that implements a single phase of the Louvain method for community detection.
 This page describes how to build [miniVite](https://github.com/Exa-Graph/miniVite) with UMap.
+
 
 miniVite has a mode that uses [Metall](https://github.com/LLNL/metall) to store a graph into persistent memory.
 Metall has a mode that uses UMap instead of system mmap() internally.
@@ -20,9 +22,7 @@ We assume that the following items are already available (installed) on the syst
 
 The write-protect feature of userfaultfd() must be available on the system's Linux kernel.
 
-
-
-## Build without Spack
+## Build Manually
 
 miniVite uses header files of Boost C++ Libraries and Metall. One does not needs to build them.
 On the other hand, one has to build and install UMap.
@@ -33,6 +33,7 @@ Here are the CMake variables to specify the locations of Boost C++ Libraries, Me
 * `BOOST_ROOT=/path/to/boost`
 * `METALL_ROOT=/path/to/metall`
 * `UMAP_ROOT=/path/to/umap/install/dir/root`
+
 
 ```bash
 # Download Boost (Boost C++ Libraries 1.64 or more is required)
@@ -91,8 +92,6 @@ cmake ../ \
  -DUSE_UMAP=ON \
 make
 ```
-
-Use `CMAKE_CXX_COMPILER=/path/to/g++` and `MPI_CXX_COMPILER=/path/to/mpic++` CMake options to specify a C++ compiler and a MPI compiler, respectively.
 
 
 # Run miniVite (example)

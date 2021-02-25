@@ -2,8 +2,7 @@
 
 This page shows how to build [HavoqGT](https://github.com/LLNL/havoqgt) with UMap.
 
-HavoqGT (Highly Asynchronous Visitor Queue Graph Toolkit) is a framework for expressing asynchronous vertex-centric graph algorithms.
-It uses the file-backed mmap mechanism to allocate graphs into a file system.
+The HavoqGT library consists of infrastructure for efficient parallel graph traversal and includes many important utilities and analysis algorithms such as Breadth First Search, connected components, triangle counting, k-cores, and community detection. HavoqGT algorithms can be built to use UMap as detailed below.
 
 
 # Build
@@ -18,7 +17,7 @@ We assume that the following items are already available (installed) on the syst
 HavoqGT creates, analyzes, modifies, and saves graphs. To support this usage, the write-protect feature of userfaultfd() must be available on the system's Linux kernel.
 
 
-## Build without Spack
+## Build Manually
 
 HavoqGT uses header files of Boost C++ Libraries and Metall. One does not need to build them.
 On the other hand, one has to build and install UMap.
@@ -54,7 +53,7 @@ cmake ../ \
   -DBOOST_ROOT=${BOOST_ROOT} \
   -DMETALL_ROOT=${METALL_ROOT} \
   -DUSE_UMAP=on \
-  -DUMAP_ROOT=${UMAP_ROOT}/install
+  -DUMAP_ROOT=/path/to/umap/install
 make
 
 export HAVOQGT_BUILD_ROOT=${PWD}
@@ -102,10 +101,6 @@ export HAVOQGT_BUILD_ROOT=${PWD}
 # runs two graph algorithms as correctness testing: breadth-first search (BFS) and connected components (CC).
 make test
 ```
-
-Use `CMAKE_CXX_COMPILER=/path/to/g++` and `MPI_CXX_COMPILER=/path/to/mpic++` CMake options to specify a C++ compiler and a MPI compiler, respectively.
-To change the install directory, one can use `CMAKE_INSTALL_PREFIX` CMake option.
-
 
 
 
