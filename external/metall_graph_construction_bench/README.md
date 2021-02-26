@@ -43,9 +43,9 @@ make
 # Run
 
 ```
-# In 'buid/bench/adjacency_list' directory
+# In 'build/bench/adjacency_list' directory
 # The benchmark creates a directory '/mnt/ssd/graph' and stores graph data (files) there
-bash ../../../bench/adjacency_list/run_bench.sh -d /mnt/ssd/bench
+bash ../../../bench/adjacency_list/run_bench.sh -d /mnt/ssd/graph
 
 # For more command-line options,
 # see the script: bench/adjacency_list/run_bench.sh
