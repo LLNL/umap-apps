@@ -23,7 +23,8 @@
 #include <sstream>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include "umap/umap.h"
+#include "umap/mpumap-client.h"
+#include "umap/mpumapd.h"
 #include <map>
 
 namespace utility {
@@ -134,7 +135,7 @@ void* map_file(
     }
 #endif
     ::close(fd);
-    region = client_umap(filename.c_str(), PROT_READ, MAP_SHARED);
+    region = client_umap(filename.c_str(), PROT_READ, MAP_SHARED, (void *)0x600000000000);
     region_to_file_map[region] = filename;
   }
 
