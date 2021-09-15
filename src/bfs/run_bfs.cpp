@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
   parse_options(argc, argv, options);
   disp_bfs_options(options);
   if (!options.use_mmap){ 
-    init_umap_client(std::string(UMAP_SERVER_PATH));
+    init_umap_client(UMAP_SERVER_PATH);
     disp_umap_env_variables();
   }
 
