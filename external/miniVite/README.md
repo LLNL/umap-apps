@@ -16,9 +16,9 @@ On this instruction page, we use the CMake file to build miniVite with UMap.
 ## Required
 
 We assume that the following items are already available (installed) on the system:
-- GCC 8.1 or more.
+- GCC 8.3 or more.
 - MPI
-- CMake 3.10 or more.
+- CMake 3.14 or more.
 
 The write-protect feature of userfaultfd() must be available on the system's Linux kernel.
 
@@ -59,12 +59,8 @@ cmake ../ \
 make
 ```
 
-*The example above was tested with Umap (commit ID e784957) and Metall v0.10.*
-
 
 ## Build with Spack
-
-***Pending availability of Umap (commit ID e784957) and Metall v0.10.***
 
 One can use [Spack](https://spack.io/) to install UMap and Metall.
 Spack also can set environmental variables properly,
@@ -88,7 +84,7 @@ mkdir build
 cd build
 cmake ../ \
  -DUSE_METALL=ON \
- -DUSE_UMAP=ON \
+ -DUSE_UMAP=ON
 make
 ```
 
