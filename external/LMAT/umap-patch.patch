@@ -1,0 +1,42 @@
+From 6fb0f6bb7ef0efb4eef6afb48470b46dffe794d8 Mon Sep 17 00:00:00 2001
+From: IP <56741918+IBPeng@users.noreply.github.com>
+Date: Sun, 24 Jan 2021 20:32:09 -0800
+Subject: [PATCH] umap patch
+
+---
+ VERSION          | 1 -
+ src/chunk_swap.c | 6 ++++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/VERSION b/VERSION
+index aa85f5a..e69de29 100644
+--- a/VERSION
++++ b/VERSION
+@@ -1 +0,0 @@
+-2.2.5-0-gfc1bb70e5f0d9a58b39efa39cc549b5af5104760
+diff --git a/src/chunk_swap.c b/src/chunk_swap.c
+index 08a5934..64d58fe 100644
+--- a/src/chunk_swap.c
++++ b/src/chunk_swap.c
+@@ -1,5 +1,6 @@
+ #define	JEMALLOC_CHUNK_SWAP_C_
+ #include "jemalloc/internal/jemalloc_internal.h"
++#include "umap.h"
+ #ifdef JEMALLOC_SWAP
+ /******************************************************************************/
+ /* Data. */
+@@ -307,8 +308,9 @@ chunk_swap_enable(const int *fds, unsigned nfds, bool prezeroed)
+ 	for (i = 0, voff = 0; i < nfds; i++) {
+ 		int fds_flags = fcntl(fds[i], F_GETFL);
+ 		int prot = PROT_READ | ((O_WRONLY|O_RDWR) & fds_flags ? PROT_WRITE : 0);
+-		void *addr = mmap((void *)((uintptr_t)vaddr + voff), sizes[i],
+-		    prot, MAP_FIXED | MAP_SHARED, fds[i], 0);
++		//void *addr = mmap((void *)((uintptr_t)vaddr + voff), sizes[i],
++		//    prot, MAP_FIXED | MAP_SHARED, fds[i], 0);
++		void *addr = umap((void *)((uintptr_t)vaddr + voff), sizes[i], prot, MAP_FIXED | MAP_PRIVATE, fds[i], 0);
+ 		if (addr == MAP_FAILED) {
+ 			char buf[BUFERROR_BUF];
+ 
+-- 
+2.29.1
+
