@@ -1,0 +1,678 @@
+diff --git a/apps/BFS.C b/apps/BFS.C
+index 241b8ca..09623dc 100644
+--- a/apps/BFS.C
++++ b/apps/BFS.C
+@@ -21,6 +21,9 @@
+ // LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++//#include "profiler.hh"
++//Profiler profiler;
++
+ #include "ligra.h"
+ 
+ struct BFS_F {
+@@ -39,6 +42,7 @@ struct BFS_F {
+ 
+ template <class vertex>
+ void Compute(graph<vertex>& GA, commandLine P) {
++  
+   long start = P.getOptionLongValue("-r",0);
+   long n = GA.n;
+   //creates Parents array, initialized to all -1, except for start
+@@ -46,11 +50,21 @@ void Compute(graph<vertex>& GA, commandLine P) {
+   parallel_for(long i=0;i<n;i++) Parents[i] = UINT_E_MAX;
+   Parents[start] = start;
+   vertexSubset Frontier(n,start); //creates initial frontier
++  //profiler.start_all();
+   while(!Frontier.isEmpty()){ //loop until frontier is empty
+     vertexSubset output = edgeMap(GA, Frontier, BFS_F(Parents));    
+     Frontier.del();
+     Frontier = output; //set new frontier
+-  } 
++  }
++  //profiler.stop_all();
++  //profiler.view_all();
+   Frontier.del();
++
++#ifdef VERIFY
++  printf("\n[");
++  for(long i=0;i<n;i++) printf("%lu ",Parents[i]);
++  printf("]\n");
++#endif
++
+   free(Parents); 
+ }
+diff --git a/apps/Makefile b/apps/Makefile
+index 819ae7e..27c47fb 100644
+--- a/apps/Makefile
++++ b/apps/Makefile
+@@ -1,10 +1,17 @@
+-ifdef LONG
++UMAP_ROOT=/home/peng8/umap_multitier/umap_old
++UMAP_ROOT=/mimer/NOBACKUP/groups/snic2022-5-307/ip/umap
++UMAP_ROOT=/home/peng8/umap_multitier/umap_new
++
++UMAP_INSTALL=${UMAP_ROOT}/build
++PFM_INSTALL=/home/peng8/skylake/Software/perfmon2-libpfm4
++
++#ifdef LONG
+ INTT = -DLONG
+-endif
++#endif
+ 
+-ifdef EDGELONG
++#ifdef EDGELONG
+ INTE = -DEDGELONG
+-endif
++#endif
+ 
+ ifdef PD
+ PD = -DPD
+@@ -22,33 +29,43 @@ ifdef LOWMEM
+ MEM = -DLOWMEM
+ endif
+ 
++#Opt 1: -DVERIFY -DCREATE_MMAP_FILE
++#Opt 2: -DMEM_MAP -DMMAP
++#Opt 3: -DMEM_MAP -DUMAP
++#-I$(UMAP_ROOT)/ext/profiling/pebs/include 
++#-lboost_system -lboost_thread -L${PFM_INSTALL}/lib -lpfm -lnuma -L$(UMAP_ROOT)/ext/profiling/pebs/lib -lpebs 
++#OPT= -DMEM_MAP -DMMAP -I$(UMAP_INSTALL)/include  $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
++OPT= -DMEM_MAP -DUMAP -I$(UMAP_INSTALL)/include  $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
++PLFLAGS=$(UMAP_INSTALL)/lib/libumap.so
++
+ #compilers
+-ifdef CILK
+-PCC = g++
+-PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -O3 -DCILK $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
+-PLFLAGS = -fcilkplus -lcilkrts
++#ifdef CILK
++#PCC = g++
++#PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -O3 -DCILK $(OPT)
++#PLFLAGS += -fcilkplus -lcilkrts
+ 
+-else ifdef MKLROOT
+-PCC = icpc
+-PCFLAGS = -std=c++14 -O3 -DCILKP $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
++#else ifdef MKLROOT
++#PCC = icpc
++#PCFLAGS = -std=c++14 -O3 -DCILKP $(OPT) 
+ 
+-else ifdef OPENMP
++#else #ifdef OPENMP
+ PCC = g++
+-PCFLAGS = -std=c++14 -fopenmp -march=native -O3 -DOPENMP $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
++PCFLAGS = -std=c++14 -Wno-unused-result -fopenmp -march=native -O3 -DOPENMP $(OPT)
+ 
+-else
+-PCC = g++
+-PCFLAGS = -std=c++14 -O3 $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
+-endif
++#else
++#PCC = g++
++#PCFLAGS = -std=c++14 -O3 $(OPT)
++#endif
+ 
+ COMMON= ligra.h graph.h compressedVertex.h vertex.h utils.h IO.h parallel.h gettime.h index_map.h maybe.h sequence.h edgeMap_utils.h binary_search.h quickSort.h blockRadixSort.h transpose.h parseCommandLine.h byte.h byteRLE.h nibble.h byte-pd.h byteRLE-pd.h nibble-pd.h vertexSubset.h encoder.C decoder.C
+ 
+-ALL= encoder decoder BFS BC BellmanFord Components Components-Shortcut Radii PageRank PageRankDelta BFSCC BFS-Bitvector KCore MIS Triangle CF
++#ALL= encoder decoder BFS BC BellmanFord Components Components-Shortcut Radii PageRank PageRankDelta BFSCC BFS-Bitvector KCore MIS Triangle CF
++ALL= PageRank
+ 
+ all: $(ALL)
+ 
+ % : %.C $(COMMON)
+-	$(PCC) $(PCFLAGS) -o $@ $<
++	$(PCC) $(PCFLAGS) -o $@ $< $(PLFLAGS)
+ 
+ $(COMMON):
+ 	ln -s ../ligra/$@ .
+@@ -56,8 +73,8 @@ $(COMMON):
+ .PHONY : clean
+ 
+ clean :
+-	rm -f *.o $(ALL)
++	rm -f *.o $(ALL) *~
+ 
+ cleansrc :
+-	rm -f *.o $(ALL)
+-	rm $(COMMON)
++	rm -f *.o $(ALL) *~
++	rm -f $(COMMON)
+diff --git a/apps/PageRank.C b/apps/PageRank.C
+index c40d438..24d843d 100644
+--- a/apps/PageRank.C
++++ b/apps/PageRank.C
+@@ -68,7 +68,7 @@ struct PR_Vertex_Reset {
+ 
+ template <class vertex>
+ void Compute(graph<vertex>& GA, commandLine P) {
+-  long maxIters = P.getOptionLongValue("-maxiters",100);
++  long maxIters = P.getOptionLongValue("-maxiters",2); //100
+   const intE n = GA.n;
+   const double damping = 0.85, epsilon = 0.0000001;
+   
+@@ -96,5 +96,12 @@ void Compute(graph<vertex>& GA, commandLine P) {
+     vertexMap(Frontier,PR_Vertex_Reset(p_curr));
+     swap(p_curr,p_next);
+   }
++
++#ifdef VERIFY
++  printf("\n[");
++  for(long i=0;i<n;i++) printf("%.6f ", p_next[i]);
++  printf("]\n");
++#endif
++  
+   Frontier.del(); free(p_curr); free(p_next); 
+ }
+diff --git a/ligra/IO.h b/ligra/IO.h
+index e31dfc6..b15efb0 100644
+--- a/ligra/IO.h
++++ b/ligra/IO.h
+@@ -21,7 +21,6 @@
+ // LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-#pragma once
+ #include <iostream>
+ #include <fstream>
+ #include <stdlib.h>
+@@ -32,11 +31,18 @@
+ #include <sys/stat.h>
+ #include <fcntl.h>
+ #include <unistd.h>
++
+ #include "parallel.h"
+ #include "blockRadixSort.h"
+ #include "quickSort.h"
+ #include "utils.h"
+ #include "graph.h"
++
++#include "umap/umap.h"
++#include <sys/mman.h>
++#include <string>
++#include <sstream>
++
+ using namespace std;
+ 
+ typedef pair<uintE,uintE> intPair;
+@@ -119,6 +125,7 @@ _seq<char> mmapStringFromFile(const char *filename) {
+ //  cout << "mmapped" << endl;
+ //  free(bytes);
+ //  exit(0);
++
+   return _seq<char>(p, n);
+ }
+ 
+@@ -160,8 +167,362 @@ words stringToWords(char *Str, long n) {
+   return words(Str,n,SA,m);
+ }
+ 
++
++_seq<char> memmapFromFileOffset(const char *filename, off_t offset, size_t length, void* addr=NULL) {
++  struct stat sb;
++  int flags = O_RDWR; //O_RDONLY  O_RDWR
++#ifdef UMAP
++  flags |= O_DIRECT;
++#endif
++  int fd = open(filename, flags);
++  if (fd == -1) {
++    perror("open");
++    exit(-1);
++  }
++  if (fstat(fd, &sb) == -1) {
++    perror("fstat");
++    exit(-1);
++  }
++  if (!S_ISREG (sb.st_mode)) {
++    perror("not a file\n");
++    exit(-1);
++  }
++
++  //cout << "file_size " << sb.st_size << endl;
++  /*
++  if( sb.st_size < (length+offset)){
++    printf("file size (%lu) is smaller than (%lu + %lu)\n", sb.st_size, offset, length);
++  }*/
++
++  if( munmap(addr, length) == -1){
++    printf("munmap %p \n failed",addr);
++    exit(-1);
++  }
++
++#ifdef MMAP
++  char *p = static_cast<char*>(mmap(addr, length, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, offset));
++  if (p == MAP_FAILED) {
++    perror("mmap failed");
++    exit(-1);
++  }
++  cout << "mmapped at " << (void*)p << endl;
++  //profiler.mt_register_address((void*)p, length);
++
++  if (close(fd) == -1) {
++    perror("close failed");
++    exit(-1);
++  }
++#else
++  uint64_t umap_pagesize = umapcfg_get_umap_page_size();
++  std::cout << "umap_pagesize "  << umap_pagesize << "\n";
++  length = ((length-1)/umap_pagesize + 1 )*umap_pagesize;
++  char *p = static_cast<char*>(umap(addr, length, PROT_READ, UMAP_PRIVATE, fd, offset)); //|PROT_WRITE
++  if (p == UMAP_FAILED) {
++    perror("umap failed");
++    exit(-1);
++  }
++  if(length<=4295229440UL) umap_fetch_and_pin(p, length);
++  cout << "umapped at " << (void*)p << endl;
++  //profiler.mt_register_address((void*)p, length);
++  
++  /*
++    //UMap needs to keep files open
++  if (close(fd) == -1) {
++    perror("close failed");
++    exit(-1);
++  }
++  */
++#endif
++
++  //for Ligra, it needs to be mapped exactly to the requested virtual address
++  if(addr!=NULL && p!=addr){
++    printf("failed to be mapped to %p (%p)\n", addr, p);
++    exit(-1);
++  }
++  
++  return _seq<char>(p, length);
++}
++
++template <class vertex>
++graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) 
++{
++  string s(fname);
++  std::string ss_path(s);
++
++#ifndef MEM_MAP
++  words W;
++  if (mmap) {
++    _seq<char> S = mmapStringFromFile(fname);
++    char *bytes = newA(char, S.n);
++    // Cannot mutate the graph unless we copy.
++    parallel_for(size_t i=0; i<S.n; i++) {
++      bytes[i] = S.A[i];
++    }
++    if (munmap(S.A, S.n) == -1) {
++      perror("munmap");
++      exit(-1);
++    }
++    S.A = bytes;
++    W = stringToWords(S.A, S.n);
++  } 
++
++  if (W.Strings[0] != (string) "AdjacencyGraph") {
++    cout << "Bad input file" << endl;
++    abort();
++  }
++
++  long len = W.m -1;
++  long n = atol(W.Strings[1]);
++  long m = atol(W.Strings[2]);
++  if (len != n + m + 2) {
++    cout << "Bad input file" << endl;
++    abort();
++  }
++
++  uintT* offsets = newA(uintT,n);
++  uintE* edges = newA(uintE,m);
++
++  {parallel_for(long i=0; i < n; i++) offsets[i] = atol(W.Strings[i + 3]);}
++  {parallel_for(long i=0; i<m; i++)   edges[i] = atol(W.Strings[i+n+3]);}
++  //W.del(); // to deal with performance bug in malloc
++
++  vertex* v = newA(vertex,n);
++
++  {parallel_for (uintT i=0; i < n; i++) {
++    uintT o = offsets[i];
++    uintT l = ((i == n-1) ? m : offsets[i+1])-offsets[i];
++    v[i].setOutDegree(l);
++    v[i].setOutNeighbors(edges+o);
++    }
++  }
++
++  free(offsets);
++
++
++  // the following saves graph structure into a file
++#ifdef CREATE_MMAP_FILE
++  std::stringstream ss_fname_edge;
++  ss_fname_edge << ss_path << ".edge";
++  const std::string s2 = ss_fname_edge.str();
++  cout << s2 << endl;
++  const char*  fname_edge = s2.c_str();
++  FILE * fp = fopen(fname_edge, "wb"); //write binary
++  if (fp == NULL)  /* If an error occurs during the file creation */
++  {
++     cerr << "fopen() failed for " << fname_edge <<endl;
++     exit(0);
++  }
++
++  fseek(fp, 0, SEEK_SET);
++  size_t elements_written = fwrite(edges, sizeof(uintE), m, fp); 
++  if (elements_written != m )
++    cerr << "fwrite(edges) failed" <<endl;
++
++  fseek(fp, sizeof(uintE)*m, SEEK_SET);
++  elements_written = fwrite(&m, sizeof(long), 1, fp); 
++  if (elements_written != 1)
++    cerr << "fwrite(m) failed "<<endl;
++
++  fseek(fp, sizeof(uintE)*m+sizeof(long), SEEK_SET);
++  elements_written = fwrite(&n, sizeof(long), 1, fp); 
++  if (elements_written != 1)
++    cerr << "fwrite(n) failed "<<endl;
++
++  fseek(fp, sizeof(uintE)*m+sizeof(long)*2, SEEK_SET);
++  uint64_t edges_ptr = (uint64_t) edges;
++  elements_written = fwrite(&edges_ptr, sizeof(uint64_t), 1, fp); 
++  if (elements_written != 1)
++    cerr << "fwrite(edges_ptr) failed "<<endl;
++
++  //truncate the file size
++  fseek(fp, sizeof(uintE)*m+sizeof(long)*2+sizeof(uint64_t), SEEK_SET);
++  fputc('\0', fp);
++  fclose(fp);
++
++  printf("m=%ld n=%ld, edges_ptr=%p , edges[10] = %lu, v_ptr=%p, vertex[10].degree = %lu\n", 
++	 m, n, (void*)edges, edges[10], (void*)v, (((symmetricVertex *) v)+10)->degree);
++  
++  std::stringstream ss_fname_vertex;
++  ss_fname_vertex << ss_path << ".vertex";
++  const std::string s1 = ss_fname_vertex.str();
++  cout << s1 << endl;
++  const char*  fname_vertex = s1.c_str();
++  fp = fopen(fname_vertex, "wb"); //write binary
++  if (fp == NULL)  /* If an error occurs during the file creation */
++  {
++     cerr << "fopen(vertex) failed for " << fname_vertex <<endl;
++     exit(0);
++  }
++  fseek(fp, 0, SEEK_SET);
++  elements_written = fwrite(v, sizeof(vertex), n, fp); 
++  if (elements_written != n )
++    cerr << "fwrite(vertex) failed" <<endl;
++  
++  fseek(fp, sizeof(vertex)*n, SEEK_SET);
++  uint64_t vertex_ptr = (uint64_t) v;
++  elements_written = fwrite(&vertex_ptr, sizeof(uint64_t), 1, fp); 
++  if (elements_written != 1)
++    cerr << "fwrite(vertex_ptr) failed "<<endl;
++
++  //truncate the file size
++  fseek(fp, sizeof(vertex)*n+sizeof(uint64_t), SEEK_SET);
++  fputc('\0', fp);
++  fclose(fp);
++#endif
++
++#else  //if defined MEM_MAP
++
++  std::stringstream ss_fname_edge;
++  ss_fname_edge << ss_path << ".edge";
++  const std::string s2 = ss_fname_edge.str();
++  //cout << s2 << endl;
++  const char*  fname_edge = s2.c_str();
++
++  FILE *fp = fopen(fname_edge, "rb");
++  int fd = open(fname_edge, O_RDONLY);
++  struct stat sb;
++  if (fd == -1) {
++    perror("open");
++    exit(-1);
++  }
++  if (fstat(fd, &sb) == -1) {
++    perror("fstat");
++    exit(-1);
++  }
++
++  off_t offset = sb.st_size - 1 - (sizeof(long)*2+sizeof(uint64_t));
++  //cout << "edge file_size " << sb.st_size << " offset " << offset << endl;
++
++  long buffer[2];
++  fseek(fp, offset, SEEK_SET);
++  fread(buffer, sizeof(long), 2, fp);
++  size_t num_edges = buffer[0];
++  size_t num_vertices = buffer[1];
++
++  if (offset != num_edges*sizeof(uintE)) {
++    cerr << "edge file validation failed, compiled with wrong options?" << endl
++         << "file offset " << offset << ", expected " << num_edges*sizeof(uintE) << endl;
++    exit(1);
++  }
++
++  fseek(fp, offset+sizeof(long)*2, SEEK_SET);
++  uint64_t edge_ptr;
++  fread(&edge_ptr, sizeof(uint64_t), 1, fp);
++  void* p = (void*) edge_ptr;
++
++  fseek(fp, 0, SEEK_SET);
++  uintE* e = (uintE*) malloc(sizeof(uintE)*16);
++  fread((void*)e, sizeof(uintE), 16, fp);
++  
++  //printf("num_edges = %ld , num_vertices = %ld, edge_ptr = %p, edges[10]=%lu\n", num_edges, num_vertices, p, e[10]);
++  fclose(fp);
++
++
++  std::stringstream ss_fname_vertex;
++  ss_fname_vertex << ss_path << ".vertex";
++  const std::string s1 = ss_fname_vertex.str();
++  //cout << s1 << endl;
++  const char*  fname_vertex = s1.c_str();
++
++  fp = fopen(fname_vertex, "rb");
++  fd = open(fname_vertex, O_RDONLY);
++  if (fd == -1) {
++    perror("open");
++    exit(-1);
++  }
++  if (fstat(fd, &sb) == -1) {
++    perror("fstat");
++    exit(-1);
++  }
++  //cout << "vertex file_size " << sb.st_size << " n=" << (sb.st_size-1-sizeof(uint64_t))*1.0/sizeof(vertex) << endl;
++
++  fseek(fp, 0, SEEK_SET);
++  vertex* v_in = (vertex*) malloc(sizeof(vertex)*16);
++  fread((void*)v_in, sizeof(vertex), 16, fp);
++  //if( std::is_same<vertex, symmetricVertex>::value )
++  //  printf("vertices[1].degree %lu\n", ((symmetricVertex*)v_in+10)->degree);
++
++  fseek(fp, sb.st_size-1-sizeof(uint64_t), SEEK_SET);
++  uint64_t vertex_ptr;
++  fread(&vertex_ptr, sizeof(uint64_t), 1, fp);
++  void* v_p = (void*) vertex_ptr;
++
++  fclose(fp);
++
++  /* use memory map to the exact base address */
++  size_t edge_region_size = ((sizeof(uintE)*num_edges-1)/4096+1)*4096; //aligned to 4k page
++  off_t edge_file_offset  = 0;
++
++  _seq<char> seq_edge = memmapFromFileOffset(fname_edge, edge_file_offset, edge_region_size, p);
++  uintE *edge_region = (uintE*) seq_edge.A;
++  if (edge_region == MAP_FAILED) {
++    perror("mmap");
++    exit(-1);
++  }
++  //printf("mmapped edges to %p of %lu bytes \n", edge_region, edge_region_size);
++
++  /* use memory map to the exact base address */
++  size_t vertice_region_size = (sizeof(symmetricVertex)*num_vertices/4096+1)*4096;
++  size_t vertice_file_offset = 0;
++  _seq<char> seq_vertex = memmapFromFileOffset(fname_vertex, vertice_file_offset, vertice_region_size,v_p);
++  symmetricVertex* vertex_region = (symmetricVertex*) seq_vertex.A;
++  if (vertex_region == MAP_FAILED) {
++    perror("mmap");
++    exit(-1);
++  }
++  //printf("mmapped vertex to %p of %lu bytes \n", vertex_region, vertice_region_size);
++
++#ifdef UMAP_PREFETCH
++
++  int npages = 160;
++  struct umap_prefetch_item page_array[200] = {(void*)0xab00000};
++  //umap_prefetch(npages, page_array );
++
++#if 0
++umap_fetch_and_pin( (char*)0xf400000 , 1048576);
++umap_fetch_and_pin( (char*)0xa600000 , 1048576);
++umap_fetch_and_pin( (char*)0xaa00000 , 1048576);
++umap_fetch_and_pin( (char*)0xa500000 , 1048576);
++umap_fetch_and_pin( (char*)0xa700000 , 1048576);
++umap_fetch_and_pin( (char*)0xab00000 , 1048576);
++umap_fetch_and_pin( (char*)0xa800000 , 1048576);
++umap_fetch_and_pin( (char*)0xac00000 , 1048576);
++umap_fetch_and_pin( (char*)0xa900000 , 1048576);
++umap_fetch_and_pin( (char*)0xa400000 , 1048576);
++umap_fetch_and_pin( (char*)0xad00000 , 1048576);
++umap_fetch_and_pin( (char*)0xf500000 , 1048576);
++umap_fetch_and_pin( (char*)0xf900000 , 1048576);
++umap_fetch_and_pin( (char*)0x10000000 , 1048576);
++umap_fetch_and_pin( (char*)0xfc00000 , 1048576);
++umap_fetch_and_pin( (char*)0xf600000 , 1048576);
++umap_fetch_and_pin( (char*)0xfb00000 , 1048576);
++umap_fetch_and_pin( (char*)0xf700000 , 1048576);
++umap_fetch_and_pin( (char*)0xfd00000 , 1048576);
++umap_fetch_and_pin( (char*)0xfe00000 , 1048576);
++umap_fetch_and_pin( (char*)0xf800000 , 1048576);
++umap_fetch_and_pin( (char*)0x10200000 , 1048576);
++umap_fetch_and_pin( (char*)0xfa00000 , 1048576);
++#endif
++
++#endif
++
++  long n = num_vertices;
++  long m = num_edges;
++  uintE* edges = (uintE*) edge_region;
++  vertex* v = (vertex*) vertex_region;
++
++#endif
++
++  //cout << "is symmetric UNWEIGHTED AdjacencyGraph, edges(m)=" << m <<", vertices(n)=" << n <<", v=" << (void*)v << endl;
++  
++  Uncompressed_Mem<vertex>* mem = new Uncompressed_Mem<vertex>(v,n,m,edges);
++
++  return graph<vertex>(v,n,m,mem);
++
++}
++
+ template <class vertex>
+-graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
++graph<vertex> readGraphFromFile_bk(char* fname, bool isSymmetric, bool mmap) {
+   words W;
+   if (mmap) {
+     _seq<char> S = mmapStringFromFile(fname);
+@@ -176,6 +537,8 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
+     }
+     S.A = bytes;
+     W = stringToWords(S.A, S.n);
++    cout << "unmmapped. S.A " << (void*)S.A << endl;
++    exit(0);
+   } else {
+     _seq<char> S = readStringFromFile(fname);
+     W = stringToWords(S.A, S.n);
+diff --git a/ligra/ligra.h b/ligra/ligra.h
+index 4742e6e..5896978 100644
+--- a/ligra/ligra.h
++++ b/ligra/ligra.h
+@@ -470,6 +470,8 @@ template<class vertex>
+ void Compute(hypergraph<vertex>&, commandLine);
+ 
+ int parallel_main(int argc, char* argv[]) {
++
++
+   commandLine P(argc,argv," [-s] <inFile>");
+   char* iFile = P.getArgument(0);
+   bool symmetric = P.getOptionValue("-s");
+@@ -477,7 +479,7 @@ int parallel_main(int argc, char* argv[]) {
+   bool binary = P.getOptionValue("-b");
+   bool mmap = P.getOptionValue("-m");
+   //cout << "mmap = " << mmap << endl;
+-  long rounds = P.getOptionLongValue("-rounds",3);
++  long rounds = P.getOptionLongValue("-rounds",1);
+   if (compressed) {
+     if (symmetric) {
+ #ifndef HYPER
+@@ -514,6 +516,7 @@ int parallel_main(int argc, char* argv[]) {
+     }
+   } else {
+     if (symmetric) {
++      startTime();
+ #ifndef HYPER
+       graph<symmetricVertex> G =
+         readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
+@@ -521,13 +524,19 @@ int parallel_main(int argc, char* argv[]) {
+       hypergraph<symmetricVertex> G =
+         readHypergraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
+ #endif
+-      Compute(G,P);
++      nextTime("pre-processing time");
++      struct Uncompressed_Mem<symmetricVertex>* tt = (struct Uncompressed_Mem<symmetricVertex>*)(G.D);
++      cout << "before Compute G.V = " << (void*)G.V << " G.E = " << (void*) (tt->allocatedInplace) << endl;
++      //startTime();
++      //Compute(G,P);
++      //nextTime("Running time");
+       for(int r=0;r<rounds;r++) {
+         startTime();
+         Compute(G,P);
+         nextTime("Running time");
+       }
+-      G.del();
++      cout << "after Compute rounds=1+" << rounds << endl;
++      //G.del();
+     } else {
+ #ifndef HYPER
+       graph<asymmetricVertex> G =
+diff --git a/ligra/utils.h b/ligra/utils.h
+index 648888f..1d88e2a 100644
+--- a/ligra/utils.h
++++ b/ligra/utils.h
+@@ -42,7 +42,8 @@ static int __jj =  mallopt(M_TRIM_THRESHOLD,-1);
+ typedef unsigned int uint;
+ typedef unsigned long ulong;
+ 
+-#define newA(__E,__n) (__E*) malloc((__n)*sizeof(__E))
++//#define newA(__E,__n) (__E*) malloc((__n)*sizeof(__E))
++#define newA(__E,__n) (__E*) ({void* buf = NULL; posix_memalign(&buf, 4194304, (__n)*sizeof(__E));buf;})
+ 
+ template <class E>
+ struct identityF { E operator() (const E& x) {return x;}};
+diff --git a/utils/Makefile b/utils/Makefile
+index ff71785..9db551d 100644
+--- a/utils/Makefile
++++ b/utils/Makefile
+@@ -16,13 +16,13 @@ else ifdef MKLROOT
+ PCC = icpc
+ PCFLAGS = -std=c++14 -O3 -DCILKP $(INTT) $(INTE)
+ 
+-else ifdef OPENMP
++else #ifdef OPENMP
+ PCC = g++
+-PCFLAGS = -std=c++14 -fopenmp -march=native -O3 -DOPENMP $(INTT) $(INTE)
++PCFLAGS = -g -std=c++14 -fopenmp -march=native -O3 -DOPENMP $(INTT) $(INTE)
+ 
+-else
+-PCC = g++
+-PCFLAGS = -std=c++14 -O3 $(INTT) $(INTE)
++#else
++#PCC = g++
++#PCFLAGS = -std=c++14 -O3 $(INTT) $(INTE)
+ endif
+ 
+ COMMON = utils.h parseCommandLine.h parallel.h quickSort.h blockRadixSort.h transpose.h
+@@ -39,7 +39,7 @@ $(COMMON):
+ 	$(PCC) $(PCFLAGS) -o $@ $<
+ 
+ clean :
+-	rm -f *.o $(GENERATORS)
++	rm -f *.o $(GENERATORS) *~
+ 
+ cleansrc :
+ 	make -s clean
