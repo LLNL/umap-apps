@@ -28,3 +28,26 @@ git apply ligra-umap.patch
 
 ```
 
+# New Options: 
+```bash
+# generate datastore files for memory-map through mmap or umap later
+  -g 
+# memory map with UMap 
+  -umap
+# memory map with mmap
+  -mmap 
+ ```
+  
+# Run
+
+```bash
+# Example generating edge and vertex datastores from graph file
+./BFS -s -g input_uncompressed_graph_filename
+
+# Example running BFS using memory-mapped option with mmap
+./BFS -s -mmap input_uncompressed_graph_filename
+
+# Example running BFS using memory-mapped option with umap
+./BFS -s -umap input_uncompressed_graph_filename
+
+```
