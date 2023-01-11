@@ -22,9 +22,72 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#include "IO.h"
-#include "umap/umap.h"
 
+#include "umap/umap.h"
+#define MEM_MAP_WITH_UMAP 1
+#define MEM_MAP_WITH_MMAP 2
+
+_seq<char> memmapFromFileOffset(const char *filename, off_t offset, size_t length, void* addr, int mem_map_option)
+{
+  struct stat sb;
+  int flags = O_RDWR; //O_RDONLY  O_RDWR
+  if( mem_map_option == MEM_MAP_WITH_UMAP )
+    flags |= O_DIRECT;
+
+  int fd = open(filename, flags);
+  if (fd == -1) {
+    perror("open");
+    exit(-1);
+  }
+  if (fstat(fd, &sb) == -1) {
+    perror("fstat");
+    exit(-1);
+  }
+  if (!S_ISREG (sb.st_mode)) {
+    perror("not a file\n");
+    exit(-1);
+  }
+
+  if( addr && munmap(addr, length) == -1){
+    printf("munmap to specified address at %p \n failed",addr);
+    exit(-1);
+  }
+
+  char *p;
+  if( mem_map_option == MEM_MAP_WITH_MMAP )
+  {
+    p = static_cast<char*>(mmap(addr, length, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, offset));
+    if (p == MAP_FAILED) {
+      perror("mmap failed");
+      exit(-1);
+    }
+    cout << "mmapped at " << (void*)p << endl;
+    if (close(fd) == -1) {
+      perror("close failed");
+      exit(-1);
+    }
+  }else{
+    uint64_t umap_pagesize = umapcfg_get_umap_page_size();
+    length = ((length-1)/umap_pagesize + 1 )*umap_pagesize;
+    p = static_cast<char*>(umap(addr, length, PROT_READ, UMAP_PRIVATE, fd, offset)); //|PROT_WRITE
+    if (p == UMAP_FAILED) {
+      perror("umap failed");
+      exit(-1);
+    }
+    //if(length<=4295229440UL) umap_fetch_and_pin(p, length);
+    cout << "umapped at " << (void*)p << endl;
+  }
+  
+  //profiler.mt_register_address((void*)p, length);
+
+  //for Ligra, it needs to be mapped exactly to the requested virtual address
+  if( addr && p!=addr ){
+    printf("failed to be mapped to %p (%p)\n", addr, p);
+    exit(-1);
+  }
+  
+  return _seq<char>(p, length);
+}
 
 template <class vertex>
 graph<vertex> readUncompressedGraph(char* iFile, bool symmetric, bool binary, bool mmap) {
@@ -34,19 +97,19 @@ graph<vertex> readUncompressedGraph(char* iFile, bool symmetric, bool binary, bo
     return readGraphFromFile<vertex>(iFile,symmetric,mmap);
 }
 
-template <class symmetricVertex>
+template <class vertex>
 graph<vertex> generateCompressedSymmetricGraphStoreFromBinary(char* fname) 
 {
   return NULL;
 }
 
-template <class symmetricVertex>
+template <class vertex>
 graph<vertex> generateCompressedSymmetricGraphStoreFromFile(char* fname) 
 {
   return NULL;
 }
 
-template <class symmetricVertex>
+template <class vertex>
 graph<vertex> generateUncompressedSymmetricGraphStoreFromBinary(char* fname) 
 {
   return NULL;
@@ -54,7 +117,8 @@ graph<vertex> generateUncompressedSymmetricGraphStoreFromBinary(char* fname)
 
 template <class symmetricVertex>
 void generateUncompressedSymmetricGraphStoreFromFile(char* fname) 
-{
+{ 
+  printf("generateUncompressedSymmetricGraphStoreFromFile:: start\n");
   string s(fname);
   std::string ss_path(s);
 
@@ -71,7 +135,6 @@ void generateUncompressedSymmetricGraphStoreFromFile(char* fname)
     abort();
   }
 
-
   long len = W.m -1;
   long n = atol(W.Strings[1]);
   long m = atol(W.Strings[2]);
@@ -83,6 +146,8 @@ void generateUncompressedSymmetricGraphStoreFromFile(char* fname)
   {
     cout << "Bad input file" << endl;
     abort();
+  }else{
+    printf("generateUncompressedSymmetricGraphStoreFromFile:: n = %ld m=%ld\n", n, m);
   }
 
 
@@ -105,7 +170,7 @@ void generateUncompressedSymmetricGraphStoreFromFile(char* fname)
     }}
   //W.del(); // to deal with performance bug in malloc
 
-  vertex* v = newA(vertex,n);
+  symmetricVertex* v = newA(symmetricVertex,n);
 
   {parallel_for (uintT i=0; i < n; i++) {
     uintT o = offsets[i];
@@ -119,8 +184,6 @@ void generateUncompressedSymmetricGraphStoreFromFile(char* fname)
     }}
 
   free(offsets);
-  //Uncompressed_Mem<vertex>* mem = new Uncompressed_Mem<vertex>(v,n,m,edges);
-  //return graph<vertex>(v,n,m,mem);
 
   /*
     Start CREATE_MMAP_FILE, the following saves graph edge structure into a file
@@ -188,7 +251,7 @@ void generateUncompressedSymmetricGraphStoreFromFile(char* fname)
      exit(0);
   }
   fseek(fp, 0, SEEK_SET);
-  elements_written = fwrite(v, sizeof(vertex), n, fp); 
+  elements_written = fwrite(v, sizeof(symmetricVertex), n, fp); 
   if (elements_written != n )
     cerr << "fwrite(vertex) failed" <<endl;
   
@@ -208,7 +271,7 @@ void generateUncompressedSymmetricGraphStoreFromFile(char* fname)
 }
 
 template <class vertex>
-graph<vertex> memmapUncompressedSymmetricGraphStoreFromFile(char* fname) 
+graph<vertex> memmapUncompressedSymmetricGraphStoreFromFile(char* fname, int mem_map_option) 
 {
 
   string s(fname);
@@ -282,7 +345,7 @@ graph<vertex> memmapUncompressedSymmetricGraphStoreFromFile(char* fname)
   size_t element_bytes = sizeof(symmetricVertex);
   if ( total_vertex_bytes % element_bytes || total_vertex_bytes/element_bytes != num_vertices ) {
     cerr << "vertex file validation failed" << endl
-         << "total_vertex_bytes " << total_vertex_bytes << ", expected " << num_vertices*selement_bytes << endl;
+         << "total_vertex_bytes " << total_vertex_bytes << ", expected " << num_vertices*element_bytes << endl;
     exit(1);
   }
 
@@ -300,7 +363,7 @@ graph<vertex> memmapUncompressedSymmetricGraphStoreFromFile(char* fname)
   size_t edge_region_size = sizeof(uintE) * num_edges;
   off_t  edge_file_offset = 0;
 
-  _seq<char> seq_edge = memmapFromFileOffset(fname_edge, edge_file_offset, edge_region_size, p);
+  _seq<char> seq_edge = memmapFromFileOffset(fname_edge, edge_file_offset, edge_region_size, p, mem_map_option);
   uintE *edge_region  = (uintE*) seq_edge.A;
   if (edge_region == MAP_FAILED) {
     perror("mmap");
@@ -311,7 +374,7 @@ graph<vertex> memmapUncompressedSymmetricGraphStoreFromFile(char* fname)
 
   size_t vertice_region_size = sizeof(symmetricVertex) * num_vertices;
   size_t vertice_file_offset = 0;
-  _seq<char> seq_vertex = memmapFromFileOffset(fname_vertex, vertice_file_offset, vertice_region_size, v_p);
+  _seq<char> seq_vertex = memmapFromFileOffset(fname_vertex, vertice_file_offset, vertice_region_size, NULL, mem_map_option);//vertex does not need to be mapped to the same address
   symmetricVertex* vertex_region = (symmetricVertex*) seq_vertex.A;
   if (vertex_region == MAP_FAILED) {
     perror("mmap");
