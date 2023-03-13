@@ -11,7 +11,7 @@
 #### 3. built-in tests of graph applications using synthetic and real graphs
 #### 4. support performance tuning on key UMap configurable parameters.
 
-*The instructions below were tested with Ligra (commit ID 7755d95), and UMap (commit ID e784957).
+*The instructions below were tested with Ligra (commit ID 7755d95), and UMap (develop branch).
 
 # Build
 #### an example script for applying the UMap patch to Ligra is included in ./build.sh
@@ -25,8 +25,11 @@ cd ligra
 git checkout 7755d95
 
 cp ../ligra-umap.patch ligra-umap.patch
-
 git apply ligra-umap.patch
+
+cd apps
+export UMAP_INSTALL_PATH=<path to Umap installation>
+make BFS
 
 ```
 
