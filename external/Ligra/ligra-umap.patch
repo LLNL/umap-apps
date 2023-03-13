@@ -1,0 +1,258 @@
+diff --git a/apps/BFS.C b/apps/BFS.C
+index 241b8ca..8b96881 100644
+--- a/apps/BFS.C
++++ b/apps/BFS.C
+@@ -50,7 +50,14 @@ void Compute(graph<vertex>& GA, commandLine P) {
+     vertexSubset output = edgeMap(GA, Frontier, BFS_F(Parents));    
+     Frontier.del();
+     Frontier = output; //set new frontier
+-  } 
++  }
+   Frontier.del();
++
++#ifdef VERIFY
++  printf("\n[");
++  for(long i=0;i<n;i++) printf("%lu ",Parents[i]);
++  printf("]\n");
++#endif
++
+   free(Parents); 
+ }
+diff --git a/apps/Makefile b/apps/Makefile
+index 819ae7e..9fa9a58 100644
+--- a/apps/Makefile
++++ b/apps/Makefile
+@@ -1,10 +1,10 @@
+-ifdef LONG
++#ifdef LONG
+ INTT = -DLONG
+-endif
++#endif
+ 
+-ifdef EDGELONG
++#ifdef EDGELONG
+ INTE = -DEDGELONG
+-endif
++#endif
+ 
+ ifdef PD
+ PD = -DPD
+@@ -22,33 +22,38 @@ ifdef LOWMEM
+ MEM = -DLOWMEM
+ endif
+ 
++#Opt 1: -DVERIFY
++#Opt 2: -I$(UMAP_ROOT)/ext/profiling/pebs/include -lboost_system -lboost_thread -L${PFM_INSTALL}/lib -lpfm -lnuma -L$(UMAP_ROOT)/ext/profiling/pebs/lib -lpebs 
++OPT= -DUSE_UMAP -I$(UMAP_INSTALL_PATH)/include  $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
++PLFLAGS=$(UMAP_INSTALL_PATH)/lib/libumap.so
++
+ #compilers
+ ifdef CILK
+ PCC = g++
+-PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -O3 -DCILK $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
+-PLFLAGS = -fcilkplus -lcilkrts
++PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -O3 -DCILK $(OPT)
++PLFLAGS += -fcilkplus -lcilkrts
+ 
+ else ifdef MKLROOT
+ PCC = icpc
+-PCFLAGS = -std=c++14 -O3 -DCILKP $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
++PCFLAGS = -std=c++14 -O3 -DCILKP $(OPT) 
+ 
+-else ifdef OPENMP
++else #ifdef OPENMP
+ PCC = g++
+-PCFLAGS = -std=c++14 -fopenmp -march=native -O3 -DOPENMP $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
++PCFLAGS = -std=c++14 -Wno-unused-result -fopenmp -march=native -O3 -DOPENMP $(OPT)
+ 
+-else
+-PCC = g++
+-PCFLAGS = -std=c++14 -O3 $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
++#else
++#PCC = g++
++#PCFLAGS = -std=c++14 -O3 $(OPT)
+ endif
+ 
+-COMMON= ligra.h graph.h compressedVertex.h vertex.h utils.h IO.h parallel.h gettime.h index_map.h maybe.h sequence.h edgeMap_utils.h binary_search.h quickSort.h blockRadixSort.h transpose.h parseCommandLine.h byte.h byteRLE.h nibble.h byte-pd.h byteRLE-pd.h nibble-pd.h vertexSubset.h encoder.C decoder.C
++COMMON= ligra.h graph.h compressedVertex.h vertex.h utils.h IO.h IOumap.h parallel.h gettime.h index_map.h maybe.h sequence.h edgeMap_utils.h binary_search.h quickSort.h blockRadixSort.h transpose.h parseCommandLine.h byte.h byteRLE.h nibble.h byte-pd.h byteRLE-pd.h nibble-pd.h vertexSubset.h encoder.C decoder.C
+ 
+ ALL= encoder decoder BFS BC BellmanFord Components Components-Shortcut Radii PageRank PageRankDelta BFSCC BFS-Bitvector KCore MIS Triangle CF
+ 
+ all: $(ALL)
+ 
+ % : %.C $(COMMON)
+-	$(PCC) $(PCFLAGS) -o $@ $<
++	$(PCC) $(PCFLAGS) -o $@ $< $(PLFLAGS)
+ 
+ $(COMMON):
+ 	ln -s ../ligra/$@ .
+@@ -56,8 +61,8 @@ $(COMMON):
+ .PHONY : clean
+ 
+ clean :
+-	rm -f *.o $(ALL)
++	rm -f *.o $(ALL) *~
+ 
+ cleansrc :
+-	rm -f *.o $(ALL)
+-	rm $(COMMON)
++	rm -f *.o $(ALL) *~
++	rm -f $(COMMON)
+diff --git a/apps/PageRank.C b/apps/PageRank.C
+index c40d438..24d843d 100644
+--- a/apps/PageRank.C
++++ b/apps/PageRank.C
+@@ -68,7 +68,7 @@ struct PR_Vertex_Reset {
+ 
+ template <class vertex>
+ void Compute(graph<vertex>& GA, commandLine P) {
+-  long maxIters = P.getOptionLongValue("-maxiters",100);
++  long maxIters = P.getOptionLongValue("-maxiters",2); //100
+   const intE n = GA.n;
+   const double damping = 0.85, epsilon = 0.0000001;
+   
+@@ -96,5 +96,12 @@ void Compute(graph<vertex>& GA, commandLine P) {
+     vertexMap(Frontier,PR_Vertex_Reset(p_curr));
+     swap(p_curr,p_next);
+   }
++
++#ifdef VERIFY
++  printf("\n[");
++  for(long i=0;i<n;i++) printf("%.6f ", p_next[i]);
++  printf("]\n");
++#endif
++  
+   Frontier.del(); free(p_curr); free(p_next); 
+ }
+diff --git a/ligra/ligra.h b/ligra/ligra.h
+index 4742e6e..74ffcef 100644
+--- a/ligra/ligra.h
++++ b/ligra/ligra.h
+@@ -40,6 +40,9 @@
+ #include "parseCommandLine.h"
+ #include "index_map.h"
+ #include "edgeMap_utils.h"
++#ifdef USE_UMAP
++#include "IOumap.h"
++#endif
+ using namespace std;
+ 
+ //*****START FRAMEWORK*****
+@@ -470,14 +473,21 @@ template<class vertex>
+ void Compute(hypergraph<vertex>&, commandLine);
+ 
+ int parallel_main(int argc, char* argv[]) {
++
++
+   commandLine P(argc,argv," [-s] <inFile>");
+   char* iFile = P.getArgument(0);
+   bool symmetric = P.getOptionValue("-s");
+   bool compressed = P.getOptionValue("-c");
+   bool binary = P.getOptionValue("-b");
+   bool mmap = P.getOptionValue("-m");
+-  //cout << "mmap = " << mmap << endl;
+-  long rounds = P.getOptionLongValue("-rounds",3);
++  bool generate_only = P.getOptionValue("-g"); //generate datastore files for memory-map through mmap or umap later
++  bool map_with_umap = P.getOptionValue("-umap"); //memory map with UMap 
++  bool map_with_mmap = P.getOptionValue("-mmap"); //memory map with mmap
++  int  mem_map_option = 0;
++  if(map_with_umap) mem_map_option = 1;
++  else if(map_with_mmap) mem_map_option = 2;
++  long rounds = P.getOptionLongValue("-rounds",1);
+   if (compressed) {
+     if (symmetric) {
+ #ifndef HYPER
+@@ -514,20 +524,28 @@ int parallel_main(int argc, char* argv[]) {
+     }
+   } else {
+     if (symmetric) {
++#ifdef USE_UMAP
++      if ( generate_only ){
++        generateUncompressedSymmetricGraphStoreFromFile<symmetricVertex>(iFile);
++        return 0;
++      }
++#endif
++      startTime();
+ #ifndef HYPER
+-      graph<symmetricVertex> G =
+-        readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
++      graph<symmetricVertex> G = (mem_map_option ? memmapUncompressedSymmetricGraphStoreFromFile<symmetricVertex>(iFile, mem_map_option) :
++                                 readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap)); //symmetric graph
+ #else
+       hypergraph<symmetricVertex> G =
+         readHypergraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
+ #endif
+-      Compute(G,P);
++      nextTime("pre-processing time");
++      Compute(G,P);nextTime("Running time");
+       for(int r=0;r<rounds;r++) {
+         startTime();
+         Compute(G,P);
+         nextTime("Running time");
+       }
+-      G.del();
++      //G.del();
+     } else {
+ #ifndef HYPER
+       graph<asymmetricVertex> G =
+diff --git a/ligra/utils.h b/ligra/utils.h
+index 648888f..1d88e2a 100644
+--- a/ligra/utils.h
++++ b/ligra/utils.h
+@@ -42,7 +42,8 @@ static int __jj =  mallopt(M_TRIM_THRESHOLD,-1);
+ typedef unsigned int uint;
+ typedef unsigned long ulong;
+ 
+-#define newA(__E,__n) (__E*) malloc((__n)*sizeof(__E))
++//#define newA(__E,__n) (__E*) malloc((__n)*sizeof(__E))
++#define newA(__E,__n) (__E*) ({void* buf = NULL; posix_memalign(&buf, 4194304, (__n)*sizeof(__E));buf;})
+ 
+ template <class E>
+ struct identityF { E operator() (const E& x) {return x;}};
+diff --git a/utils/Makefile b/utils/Makefile
+index ff71785..4c82eff 100644
+--- a/utils/Makefile
++++ b/utils/Makefile
+@@ -1,10 +1,10 @@
+-ifdef LONG
++#ifdef LONG
+ INTT = -DLONG
+-endif
++#endif
+ 
+-ifdef EDGELONG
++#ifdef EDGELONG
+ INTE = -DEDGELONG
+-endif
++#endif
+ 
+ #compilers
+ ifdef CILK
+@@ -16,13 +16,13 @@ else ifdef MKLROOT
+ PCC = icpc
+ PCFLAGS = -std=c++14 -O3 -DCILKP $(INTT) $(INTE)
+ 
+-else ifdef OPENMP
++else #ifdef OPENMP
+ PCC = g++
+-PCFLAGS = -std=c++14 -fopenmp -march=native -O3 -DOPENMP $(INTT) $(INTE)
++PCFLAGS = -Wno-unused-result -g -std=c++14 -fopenmp -march=native -O3 -DOPENMP $(INTT) $(INTE)
+ 
+-else
+-PCC = g++
+-PCFLAGS = -std=c++14 -O3 $(INTT) $(INTE)
++#else
++#PCC = g++
++#PCFLAGS = -std=c++14 -O3 $(INTT) $(INTE)
+ endif
+ 
+ COMMON = utils.h parseCommandLine.h parallel.h quickSort.h blockRadixSort.h transpose.h
+@@ -39,7 +39,7 @@ $(COMMON):
+ 	$(PCC) $(PCFLAGS) -o $@ $<
+ 
+ clean :
+-	rm -f *.o $(GENERATORS)
++	rm -f *.o $(GENERATORS) *~
+ 
+ cleansrc :
+ 	make -s clean
