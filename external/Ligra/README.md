@@ -14,6 +14,8 @@
 *The instructions below were tested with Ligra (commit ID 7755d95), and UMap (commit ID e784957).
 
 # Build
+#### an example script for applying the UMap patch to Ligra is included in ./build.sh
+#### Or, following the steps:
 
 ```bash
 # Download Ligra

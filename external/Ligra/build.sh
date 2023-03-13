@@ -8,4 +8,8 @@ cp ../ligra-umap.patch ligra-umap.patch
 
 git apply ligra-umap.patch
 
+cd apps
 
+export UMAP_INSTALL_PATH=<path to Umap installation>
+
+make BFS
