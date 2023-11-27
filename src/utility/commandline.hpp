@@ -30,6 +30,7 @@ typedef struct {
   int initonly;       // Just perform initialization, then quit
   int noinit;         // Init already done, so skip it
   int usemmap;
+  int use_sparse_store;
   int shuffle;
 
   long pagesize;
@@ -60,11 +61,12 @@ static void usage(char* pname)
 {
   std::cerr
   << "Usage: " << pname << " [--initonly] [--noinit] [--directio]"
-  <<                       " [--usemmap] [-p #] [-t #] [-b #] [-f name]\n\n"
+  <<                       " [--usemmap] [--use_sparse_store] [-p #] [-t #] [-b #] [-f name]\n\n"
   << " --help                      - This message\n"
   << " --initonly                  - Initialize file, then stop\n"
   << " --noinit                    - Use previously initialized file\n"
   << " --usemmap                   - Use mmap instead of umap\n"
+  << " --use_sparse_store          - Use UMap with a sparse backing store object (Cannot be used with --usemmap)\n"
   << " --shuffle                   - Shuffle memory accesses (instead of sequential access)\n"
   << " -p # of pages               - default: " << NUMPAGES << std::endl
   << " -t # of app threads         - default: " << NUMTHREADS << std::endl
@@ -92,6 +94,7 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
   testops->initonly = 0;
   testops->noinit = 0;
   testops->usemmap = 0;
+  testops->use_sparse_store = 0;
   testops->shuffle = 0;
   testops->pages_to_access = 0;
   testops->numpages = NUMPAGES;
@@ -109,11 +112,12 @@ void umt_getoptions(utility::umt_optstruct_t* testops, int argc, char *argv[])
   while (1) {
     int option_index = 0;
     static struct option long_options[] = {
-      {"initonly",  no_argument,  &testops->initonly, 1 },
-      {"noinit",    no_argument,  &testops->noinit,   1 },
-      {"usemmap",   no_argument,  &testops->usemmap,  1 },
-      {"shuffle",   no_argument,  &testops->shuffle,  1 },
-      {"help",      no_argument,  NULL,  0 },
+      {"initonly",           no_argument,  &testops->initonly, 1 },
+      {"noinit",             no_argument,  &testops->noinit,   1 },
+      {"usemmap",            no_argument,  &testops->usemmap,  1 },
+      {"use_sparse_store",   no_argument,  &testops->use_sparse_store,  1 },
+      {"shuffle",            no_argument,  &testops->shuffle,  1 },
+      {"help",               no_argument,  NULL,  0 },
       {0,           0,            0,     0 }
     };
 
